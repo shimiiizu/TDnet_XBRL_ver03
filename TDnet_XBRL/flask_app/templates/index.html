@@ -7,34 +7,35 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
-        body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:1400px;margin:0 auto;padding:20px;background:#f5f5f5;}
-        h1{color:#333;text-align:center;}
-        .controls{background:#fff;padding:20px;border-radius:8px;margin-bottom:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);}
-        label{display:block;margin-bottom:8px;font-weight:bold;color:#555;}
-        select,input[type=text]{width:100%;padding:10px;font-size:16px;border:1px solid #ddd;border-radius:4px;margin-bottom:10px;}
-        input[type=checkbox]{width:auto;margin-right:8px;}
-        button{width:100%;padding:10px;font-size:16px;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-bottom:15px;}
-        button:hover{background:#1976D2;}
-        .tabs{display:flex;gap:10px;margin-bottom:20px;background:#fff;padding:10px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);}
-        .tab{flex:1;padding:12px;font-size:16px;background:#e0e0e0;color:#333;border:none;border-radius:4px;cursor:pointer;transition:all .3s;font-weight:bold;}
-        .tab:hover{background:#d0d0d0;}
-        .tab.active{background:#2196F3;color:#fff;}
-        .tab-content{display:none;}
-        .tab-content.active{display:block;}
-        .metric-selector{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:20px;}
-        .metric-button{padding:12px;font-size:14px;background:#e0e0e0;color:#333;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:all .3s;}
-        .metric-button:hover{background:#d0d0d0;}
-        .metric-button.active{background:#2196F3;color:#fff;border-color:#1976D2;}
-        .chart-container{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);position:relative;height:350px;margin-bottom:20px;}
-        .stock-checkbox{background:#fff3e0;padding:12px;border-radius:8px;margin-top:15px;border-left:4px solid #ff9800;}
-        .stock-checkbox label{display:inline;margin-bottom:0;color:#e65100;cursor:pointer;}
-        #loading{text-align:center;padding:40px;color:#666;}
-        .info-box{background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #2196F3;}
-        .info-box p{margin:5px 0;color:#1565C0;}
+        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;}
+        h1 {color: #333; text-align: center;}
+        .controls {background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+        label {display: block; margin-bottom: 8px; font-weight: bold; color: #555;}
+        select, input[type="text"] {width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;}
+        input[type="checkbox"] {width: auto; margin-right: 8px;}
+        button {width: 100%; padding: 10px; font-size: 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 15px;}
+        button:hover {background-color: #1976D2;}
+        .tabs {display: flex; gap: 10px; margin-bottom: 20px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+        .tab {flex: 1; padding: 12px; font-size: 16px; background-color: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer; transition: all 0.3s; font-weight: bold;}
+        .tab:hover {background-color: #d0d0d0;}
+        .tab.active {background-color: #2196F3; color: white;}
+        .tab-content {display: none;}
+        .tab-content.active {display: block;}
+        .metric-selector {display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 20px;}
+        .metric-button {padding: 12px; font-size: 14px; background-color: #e0e0e0; color: #333; border: 2px solid transparent; border-radius: 4px; cursor: pointer; transition: all 0.3s;}
+        .metric-button:hover {background-color: #d0d0d0;}
+        .metric-button.active {background-color: #2196F3; color: white; border-color: #1976D2;}
+        .chart-container {background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; height: 350px; margin-bottom: 20px;}
+        .stock-checkbox {background: #fff3e0; padding: 12px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ff9800;}
+        .stock-checkbox label {display: inline; margin-bottom: 0; color: #e65100; cursor: pointer;}
+        #loading {text-align: center; padding: 40px; color: #666;}
+        .info-box {background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196F3;}
+        .info-box p {margin: 5px 0; color: #1565C0;}
     </style>
 </head>
 <body>
     <h1>財務データ分析ツール</h1>
+
     <div class="info-box">
         <p><strong>このツールについて：</strong></p>
         <p>企業の貸借対照表(BS)と損益計算書(PL)のデータを時系列で可視化します。チェックボックスをONにすると株価を重ねて表示できます。</p>
@@ -44,11 +45,14 @@
         <label for="codeInput">証券コードで検索:</label>
         <input type="text" id="codeInput" placeholder="例: 9504" />
         <button id="searchButton">検索</button>
-        <label for="companySelect" style="margin-top:20px;">または会社を選択:</label>
-        <select id="companySelect"><option value="">読み込み中...</option></select>
+
+        <label for="companySelect" style="margin-top: 20px;">または会社を選択:</label>
+        <select id="companySelect">
+            <option value="">読み込み中...</option>
+        </select>
     </div>
 
-    <div class="tabs" id="mainTabs" style="display:none;">
+    <div class="tabs" id="mainTabs" style="display: none;">
         <button class="tab active" onclick="switchTab('bs')">貸借対照表 (BS)</button>
         <button class="tab" onclick="switchTab('pl')">損益計算書 (PL)</button>
     </div>
@@ -64,9 +68,14 @@
                 <button class="metric-button" data-metric="ppe">有形固定資産</button>
                 <button class="metric-button" data-metric="retainedEarnings">利益剰余金</button>
             </div>
-            <div class="stock-checkbox"><label><input type="checkbox" id="showStockInBS"> 株価を重ねて表示</label></div>
+            <div class="stock-checkbox">
+                <label><input type="checkbox" id="showStockInBS"> 株価を重ねて表示</label>
+            </div>
         </div>
-        <div class="chart-container"><canvas id="bsChart"></canvas></div>
+
+        <div class="chart-container">
+            <canvas id="bsChart"></canvas>
+        </div>
     </div>
 
     <div id="pl-content" class="tab-content">
@@ -78,151 +87,196 @@
                 <button class="metric-button" data-metric="ordinaryIncome">経常利益</button>
                 <button class="metric-button" data-metric="netIncome">純利益</button>
             </div>
-            <div class="stock-checkbox"><label><input type="checkbox" id="showStockInPL"> 株価を重ねて表示</label></div>
+            <div class="stock-checkbox">
+                <label><input type="checkbox" id="showStockInPL"> 株価を重ねて表示</label>
+            </div>
         </div>
-        <div class="chart-container"><canvas id="plChart"></canvas></div>
+
+        <div class="chart-container">
+            <canvas id="plChart"></canvas>
+        </div>
     </div>
 
     <div id="loading" style="display:none;">データを読み込んでいます...</div>
 
     <script>
+        // 日本語ラベルマッピング
         const metricNames = {
-            assets:'総資産',netAssets:'純資産',currentAssets:'流動資産',cash:'現金・預金',
-            ppe:'有形固定資産',retainedEarnings:'利益剰余金',
-            netSales:'売上高',operatingIncome:'営業利益',ordinaryIncome:'経常利益',netIncome:'純利益'
+            assets: '総資産',
+            netAssets: '純資産',
+            currentAssets: '流動資産',
+            cash: '現金・預金',
+            ppe: '有形固定資産',
+            retainedEarnings: '利益剰余金',
+            netSales: '売上高',
+            operatingIncome: '営業利益',
+            ordinaryIncome: '経常利益',
+            netIncome: '純利益'
         };
 
-        let bsChart, plChart;
+        let bsChart = null, plChart = null;
 
-        // モックデータで即動作
         async function loadCompanies() {
             const select = document.getElementById('companySelect');
             const loading = document.getElementById('loading');
-            const mockCompanies = [
-                { code: "9504", name: "中部電力" },
-                { code: "7203", name: "トヨタ自動車" },
-                { code: "9984", name: "ソフトバンクグループ" }
-            ];
-
             try {
                 loading.style.display = 'block';
-                await new Promise(r => setTimeout(r, 500));
-
+                const response = await fetch('/api/companies');
+                const companies = await response.json();
                 select.innerHTML = '<option value="">会社を選択してください</option>';
-                mockCompanies.forEach(c => {
+                companies.forEach(c => {
                     const opt = document.createElement('option');
                     opt.value = c.code;
                     opt.textContent = `${c.name} (${c.code})`;
                     select.appendChild(opt);
                 });
-
-                const defaultCompany = mockCompanies[0];
-                select.value = defaultCompany.code;
-                await loadAllData(defaultCompany.code, defaultCompany.name);
-
                 loading.style.display = 'none';
-
                 select.addEventListener('change', async () => {
                     if (select.value) {
-                        const comp = mockCompanies.find(c => c.code === select.value);
-                        await loadAllData(comp.code, comp.name);
+                        const company = companies.find(c => c.code === select.value);
+                        await loadAllData(company.code, company.name);
                     }
                 });
-
                 document.getElementById('searchButton').addEventListener('click', searchByCode);
-            } catch (e) {
-                console.error(e);
-                alert('モックデータ読み込み失敗');
+            } catch (err) {
+                console.error('会社リスト取得失敗:', err);
+                alert('会社リストの取得に失敗しました');
                 loading.style.display = 'none';
             }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`${tab}-content`).classList.add('active');
         }
 
         async function loadAllData(code, name) {
             document.getElementById('mainTabs').style.display = 'flex';
             document.getElementById('loading').style.display = 'block';
-
-            const bs = [
-                { term: "2024-03", assets: 1000000, netAssets: 400000, currentAssets: 300000, cash: 100000, ppe: 500000, retainedEarnings: 200000 },
-                { term: "2024-06", assets: 1050000, netAssets: 420000, currentAssets: 320000, cash: 110000, ppe: 510000, retainedEarnings: 220000 },
-                { term: "2024-09", assets: 1100000, netAssets: 440000, currentAssets: 340000, cash: 120000, ppe: 520000, retainedEarnings: 240000 },
-                { term: "2024-12", assets: 1150000, netAssets: 460000, currentAssets: 360000, cash: 130000, ppe: 530000, retainedEarnings: 260000 }
-            ];
-
-            const pl = [
-                { term: "2024-03", netSales: 500000, operatingIncome: 50000, ordinaryIncome: 48000, netIncome: 30000 },
-                { term: "2024-06", netSales: 520000, operatingIncome: 52000, ordinaryIncome: 50000, netIncome: 32000 },
-                { term: "2024-09", netSales: 540000, operatingIncome: 54000, ordinaryIncome: 52000, netIncome: 34000 },
-                { term: "2024-12", netSales: 560000, operatingIncome: 56000, ordinaryIncome: 54000, netIncome: 36000 }
-            ];
-
-            const stock = [
-                { date: "2024-03-01", price: 2800 }, { date: "2024-03-04", price: 2820 }, { date: "2024-03-05", price: 2850 },
-                { date: "2024-06-01", price: 2900 }, { date: "2024-06-03", price: 2880 }, { date: "2024-06-04", price: 2920 },
-                { date: "2024-09-01", price: 2950 }, { date: "2024-09-02", price: 2980 }, { date: "2024-09-03", price: 3000 },
-                { date: "2024-12-01", price: 3050 }, { date: "2024-12-02", price: 3080 }, { date: "2024-12-03", price: 3100 }
-            ];
-
-            renderChart('bs', bs, stock);
-            renderChart('pl', pl, stock);
-            document.getElementById('loading').style.display = 'none';
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-            document.getElementById(`${tab}-content`).classList.add('active');
+            try {
+                const [bs, pl, stock] = await Promise.all([
+                    fetch(`/api/bs-data/${name}`).then(r => r.json()),
+                    fetch(`/api/pl-data/${code}`).then(r => r.json()),
+                    fetch(`/api/stock-price/${code}`).then(r => r.json())
+                ]);
+                renderChart('bs', bs, stock);
+                renderChart('pl', pl, stock);
+            } catch (err) {
+                console.error(err);
+                alert('データの取得に失敗しました');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
         }
 
         function renderChart(type, data, stock) {
             const ctx = document.getElementById(`${type}Chart`).getContext('2d');
-            const buttons = document.querySelectorAll(`#${type}Metrics .metric-button`);
+            const metricButtons = document.querySelectorAll(`#${type}Metrics .metric-button`);
             let activeMetric = document.querySelector(`#${type}Metrics .metric-button.active`).dataset.metric;
-            const chk = document.getElementById(`showStockIn${type.toUpperCase()}`);
 
-            buttons.forEach(btn => btn.addEventListener('click', () => {
-                buttons.forEach(b=>b.classList.remove('active'));
-                btn.classList.add('active');
-                activeMetric = btn.dataset.metric;
-                drawChart();
-            }));
-            chk.addEventListener('change', drawChart);
+            metricButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    metricButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    activeMetric = btn.dataset.metric;
+                    drawChart();
+                });
+            });
+
+            const showStockCheckbox = document.getElementById(`showStockIn${type.toUpperCase()}`);
+            showStockCheckbox.addEventListener('change', drawChart);
 
             function drawChart() {
-                const labels = stock && stock.length ? stock.map(s=>s.date) : data.map(d=>d.term);
-                const label = metricNames[activeMetric] || activeMetric;
-                const map = {}; data.forEach(d => { const k = d.date||d.term; map[k] = d[activeMetric]; });
-                const vals = labels.map(d => map[d] ?? null);
-                const stockVals = chk.checked && stock && stock.length ? stock.map(s=>s.price) : [];
-
-                const datasets = [{ label, data: vals, borderColor:'#2196F3', backgroundColor:'rgba(33,150,243,0.2)', yAxisID:'y', spanGaps:true }];
-                if (chk.checked && stock && stock.length) {
-                    datasets.push({ label:'株価（円）', data:stockVals, borderColor:'#FF9800', backgroundColor:'rgba(255,152,0,0.2)', yAxisID:'y1', spanGaps:true });
+                // 破棄を確実に（nullチェック追加）
+                if (type === 'bs' && bsChart) {
+                    bsChart.destroy();
+                    bsChart = null;
+                }
+                if (type === 'pl' && plChart) {
+                    plChart.destroy();
+                    plChart = null;
                 }
 
-                if (type==='bs' && bsChart) bsChart.destroy();
-                if (type==='pl' && plChart) plChart.destroy();
+                const labels = stock && stock.length ? stock.map(s => s.date) : data.map(d => d.date || d.term);
+                const activeLabel = metricNames[activeMetric] || activeMetric;
+
+                const dataMap = {};
+                data.forEach(d => {
+                    const key = d.date || d.term;
+                    dataMap[key] = d[activeMetric];
+                });
+                const metricValues = labels.map(date => dataMap[date] ?? null);
+
+                const stockValues = showStockCheckbox.checked && stock && stock.length
+                    ? stock.map(s => s.price)
+                    : [];
+
+                const datasets = [{
+                    label: activeLabel,
+                    data: metricValues,
+                    borderColor: '#2196F3',
+                    backgroundColor: 'rgba(33,150,243,0.2)',
+                    yAxisID: 'y',
+                    spanGaps: true
+                }];
+
+                if (showStockCheckbox.checked && stock && stock.length) {
+                    datasets.push({
+                        label: '株価（円）',
+                        data: stockValues,
+                        borderColor: '#FF9800',
+                        backgroundColor: 'rgba(255,152,0,0.2)',
+                        yAxisID: 'y1',
+                        spanGaps: true
+                    });
+                }
 
                 const chart = new Chart(ctx, {
-                    type:'line', data:{labels,datasets}, options:{
-                        responsive:true, interaction:{mode:'index',intersect:false},
-                        plugins:{legend:{position:'top'}},
-                        scales:{
-                            x:{type:'time',time:{unit:'day',displayFormats:{day:'MM/DD'}},title:{display:true,text:'日付'}},
-                            y:{position:'left',title:{display:true,text:'金額 (百万円)'}},
-                            y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'株価 (円)'}}
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { unit: 'day', displayFormats: { day: 'MM/dd' } },  // DD → dd に修正
+                                title: { display: true, text: '日付' }
+                            },
+                            y: { position: 'left', title: { display: true, text: '金額 (百万円)' } },
+                            y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
                         }
                     }
                 });
-                if (type==='bs') bsChart=chart; else plChart=chart;
+
+                if (type === 'bs') bsChart = chart; else plChart = chart;
             }
             drawChart();
         }
 
         async function searchByCode() {
             const code = document.getElementById('codeInput').value.trim();
-            if (!code) return alert('証券コードを入力してください');
-            alert(`検索: ${code}（モックモードのため無視）`);
+            if (!code) {
+                alert('証券コードを入力してください');
+                return;
+            }
+            try {
+                const companies = await fetch('/api/companies').then(r => r.json());
+                const company = companies.find(c => c.code === code);
+                if (!company) {
+                    alert('指定された証券コードの会社が見つかりません');
+                    return;
+                }
+                const select = document.getElementById('companySelect');
+                select.value = company.code;
+                await loadAllData(company.code, company.name);
+            } catch (error) {
+                console.error('検索エラー:', error);
+                alert('会社データの検索に失敗しました');
+            }
         }
 
         window.addEventListener('DOMContentLoaded', loadCompanies);
