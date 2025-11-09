@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>財務データ分析ツール</title>
+    <title>財務データ分析ツール - BS & PL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
@@ -35,30 +35,37 @@
 </head>
 <body>
     <h1>財務データ分析ツール</h1>
+
     <div class="info-box">
-        <p><strong>モックデータで動作中！</strong>（API不要）</p>
-        <p>株価もBS/PLも表示されます。チェックボックスでON/OFF可能。</p>
+        <p><strong>リアルデータ連携中！</strong></p>
+        <p>SQLite + Yahoo Finance から取得。チェックボックスで株価を重ねて表示。</p>
     </div>
 
     <div class="controls">
-        <label>会社を選択:</label>
-        <select id="companySelect">
-            <option value="9504">中部電力 (9504)</option>
-            <option value="7203">トヨタ自動車 (7203)</option>
-        </select>
+        <label for="codeInput">証券コードで検索:</label>
+        <input type="text" id="codeInput" placeholder="例: 9504" />
+        <button id="searchButton">検索</button>
+
+        <label for="companySelect" style="margin-top:20px;">または会社を選択:</label>
+        <select id="companySelect"><option value="">読み込み中...</option></select>
     </div>
 
-    <div class="tabs" id="mainTabs">
+    <div class="tabs" id="mainTabs" style="display:none;">
         <button class="tab active" onclick="switchTab('bs')">貸借対照表 (BS)</button>
         <button class="tab" onclick="switchTab('pl')">損益計算書 (PL)</button>
     </div>
 
+    <!-- BS -->
     <div id="bs-content" class="tab-content active">
         <div class="controls">
             <label>表示する指標:</label>
             <div class="metric-selector" id="bsMetrics">
                 <button class="metric-button active" data-metric="assets">総資産</button>
                 <button class="metric-button" data-metric="netAssets">純資産</button>
+                <button class="metric-button" data-metric="currentAssets">流動資産</button>
+                <button class="metric-button" data-metric="cash">現金・預金</button>
+                <button class="metric-button" data-metric="ppe">有形固定資産</button>
+                <button class="metric-button" data-metric="retainedEarnings">利益剰余金</button>
             </div>
             <div class="stock-checkbox">
                 <label><input type="checkbox" id="showStockInBS" checked> 株価を重ねて表示</label>
@@ -67,12 +74,15 @@
         <div class="chart-container"><canvas id="bsChart"></canvas></div>
     </div>
 
+    <!-- PL -->
     <div id="pl-content" class="tab-content">
         <div class="controls">
             <label>表示する指標:</label>
             <div class="metric-selector" id="plMetrics">
                 <button class="metric-button active" data-metric="netSales">売上高</button>
                 <button class="metric-button" data-metric="operatingIncome">営業利益</button>
+                <button class="metric-button" data-metric="ordinaryIncome">経常利益</button>
+                <button class="metric-button" data-metric="netIncome">純利益</button>
             </div>
             <div class="stock-checkbox">
                 <label><input type="checkbox" id="showStockInPL" checked> 株価を重ねて表示</label>
@@ -81,47 +91,53 @@
         <div class="chart-container"><canvas id="plChart"></canvas></div>
     </div>
 
-    <script>
-        const metricNames = { assets:'総資産', netAssets:'純資産', netSales:'売上高', operatingIncome:'営業利益' };
-        let bsChart = null, plChart = null;
+    <div id="loading" style="display:none;">データを読み込んでいます...</div>
 
-        // モックデータ（年月でマッチ）
-        const data = {
-            bs: [
-                { term: "2024-03", assets: 1000, netAssets: 400 },
-                { term: "2024-06", assets: 1050, netAssets: 420 },
-                { term: "2024-09", assets: 1100, netAssets: 440 },
-                { term: "2024-12", assets: 1150, netAssets: 460 }
-            ],
-            pl: [
-                { term: "2024-03", netSales: 500, operatingIncome: 50 },
-                { term: "2024-06", netSales: 520, operatingIncome: 52 },
-                { term: "2024-09", netSales: 540, operatingIncome: 54 },
-                { term: "2024-12", netSales: 560, operatingIncome: 56 }
-            ],
-            stock: [
-                { date: "2024-03-01", price: 2800 },
-                { date: "2024-03-15", price: 2850 },
-                { date: "2024-03-31", price: 2900 },
-                { date: "2024-06-01", price: 2950 },
-                { date: "2024-06-15", price: 2980 },
-                { date: "2024-06-30", price: 3000 },
-                { date: "2024-09-01", price: 3050 },
-                { date: "2024-09-15", price: 3080 },
-                { date: "2024-09-30", price: 3100 },
-                { date: "2024-12-01", price: 3150 },
-                { date: "2024-12-15", price: 3180 },
-                { date: "2024-12-31", price: 3200 }
-            ]
+    <script>
+        const metricNames = {
+            assets: '総資産', netAssets: '純資産', currentAssets: '流動資産',
+            cash: '現金・預金', ppe: '有形固定資産', retainedEarnings: '利益剰余金',
+            netSales: '売上高', operatingIncome: '営業利益',
+            ordinaryIncome: '経常利益', netIncome: '純利益'
         };
 
-        // 初期化
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('mainTabs').style.display = 'flex';
-            document.getElementById('companySelect').onchange = () => loadData();
-            loadData();
-        });
+        let bsChart = null, plChart = null;
 
+        // 会社リスト取得
+        async function loadCompanies() {
+            const select = document.getElementById('companySelect');
+            const loading = document.getElementById('loading');
+            try {
+                loading.style.display = 'block';
+                const resp = await fetch('/api/companies');
+                if (!resp.ok) throw new Error('Network error');
+                const companies = await resp.json();
+
+                select.innerHTML = '<option value="">会社を選択してください</option>';
+                companies.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.code;
+                    opt.textContent = `${c.name} (${c.code})`;
+                    select.appendChild(opt);
+                });
+
+                select.onchange = async () => {
+                    if (select.value) {
+                        const comp = companies.find(c => c.code === select.value);
+                        await loadAllData(comp.code, comp.name);
+                    }
+                };
+
+                document.getElementById('searchButton').onclick = searchByCode;
+                loading.style.display = 'none';
+            } catch (e) {
+                console.error(e);
+                alert('会社リスト取得失敗');
+                loading.style.display = 'none';
+            }
+        }
+
+        // タブ切り替え
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -129,12 +145,33 @@
             document.getElementById(`${tab}-content`).classList.add('active');
         }
 
-        function loadData() {
-            renderChart('bs', data.bs, data.stock);
-            renderChart('pl', data.pl, data.stock);
+        // 全データ取得
+        async function loadAllData(code, name) {
+            document.getElementById('mainTabs').style.display = 'flex';
+            document.getElementById('loading').style.display = 'block';
+            try {
+                const [bsResp, plResp, stockResp] = await Promise.all([
+                    fetch(`/api/bs-data/${encodeURIComponent(name)}`),
+                    fetch(`/api/pl-data/${code}`),
+                    fetch(`/api/stock-price/${code}`)
+                ]);
+
+                const bs = await bsResp.json();
+                const pl = await plResp.json();
+                const stock = await stockResp.json();
+
+                renderChart('bs', bs, stock);
+                renderChart('pl', pl, stock);
+            } catch (e) {
+                console.error(e);
+                alert('データ取得失敗');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
         }
 
-        function renderChart(type, bsplData, stock) {
+        // チャート描画
+        function renderChart(type, data, stock) {
             const ctx = document.getElementById(`${type}Chart`).getContext('2d');
             const buttons = document.querySelectorAll(`#${type}Metrics .metric-button`);
             let activeMetric = buttons[0].dataset.metric;
@@ -146,7 +183,6 @@
                 activeMetric = btn.dataset.metric;
                 drawChart();
             });
-
             checkbox.onchange = drawChart;
 
             function drawChart() {
@@ -154,14 +190,15 @@
                 if (type === 'bs' && bsChart) { bsChart.destroy(); bsChart = null; }
                 if (type === 'pl' && plChart) { plChart.destroy(); plChart = null; }
 
-                const labels = stock.map(s => s.date);
+                // 株価の日付を基準
+                const labels = stock.length ? stock.map(s => s.date) : data.map(d => d.term + '-01');
                 const label = metricNames[activeMetric];
 
-                // 年月でマッチ
+                // BS/PLの値を年月でマッチ
                 const map = {};
-                bsplData.forEach(d => { map[d.term] = d[activeMetric]; });
+                data.forEach(d => { map[d.term] = d[activeMetric]; });
                 const values = labels.map(date => {
-                    const ym = date.substring(0, 7); // "2024-03"
+                    const ym = date.substring(0, 7); // YYYY-MM
                     return map[ym] ?? null;
                 });
 
@@ -174,7 +211,7 @@
                     spanGaps: true
                 }];
 
-                if (checkbox.checked) {
+                if (checkbox.checked && stock.length) {
                     datasets.push({
                         label: '株価（円）',
                         data: stock.map(s => s.price),
@@ -190,6 +227,7 @@
                     data: { labels, datasets },
                     options: {
                         responsive: true,
+                        interaction: { mode: 'index', intersect: false },
                         plugins: { legend: { position: 'top' } },
                         scales: {
                             x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
@@ -202,9 +240,27 @@
                 if (type === 'bs') bsChart = chart;
                 else plChart = chart;
             }
-
             drawChart();
         }
+
+        // コードで検索
+        async function searchByCode() {
+            const code = document.getElementById('codeInput').value.trim();
+            if (!code) return alert('証券コードを入力してください');
+            try {
+                const resp = await fetch('/api/companies');
+                const companies = await resp.json();
+                const comp = companies.find(c => c.code === code);
+                if (!comp) return alert('会社が見つかりません');
+                document.getElementById('companySelect').value = code;
+                await loadAllData(code, comp.name);
+            } catch (e) {
+                alert('検索失敗');
+            }
+        }
+
+        // 起動
+        window.addEventListener('DOMContentLoaded', loadCompanies);
     </script>
 </body>
 </html>
