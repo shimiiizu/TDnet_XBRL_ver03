@@ -25,8 +25,8 @@
         .metric-button {padding:12px;font-size:14px;background:#e0e0e0;color:#333;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:all .3s;}
         .metric-button:hover {background:#d0d0d0;}
         .metric-button.active {background:#2196F3;color:#fff;border-color:#1976D2;}
-        /* 高さを低く */
-        .chart-container {background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);height:250px;margin-bottom:20px;position:relative;}
+        /* 高さは canvas に直接設定 */
+        .chart-container {background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);margin-bottom:20px;position:relative;}
         .stock-checkbox {background:#fff3e0;padding:12px;border-radius:8px;margin-top:15px;border-left:4px solid #ff9800;}
         .stock-checkbox label {display:inline;color:#e65100;cursor:pointer;}
         #loading {text-align:center;padding:40px;color:#666;}
@@ -38,8 +38,8 @@
     <h1>財務データ分析ツール</h1>
 
     <div class="info-box">
-        <p><strong>リアルデータ連携中！</strong></p>
-        <p>日付に年を表示・グラフ高さ250px・株価は線のみ</p>
+        <p><strong>グラフ高さ 250px 固定！</strong></p>
+        <p>canvas に直接高さを設定 → 確実に反映</p>
     </div>
 
     <div class="controls">
@@ -72,7 +72,9 @@
                 <label><input type="checkbox" id="showStockInBS" checked> 株価を重ねて表示</label>
             </div>
         </div>
-        <div class="chart-container"><canvas id="bsChart"></canvas></div>
+        <div class="chart-container">
+            <canvas id="bsChart" height="250"></canvas> <!-- ここに height -->
+        </div>
     </div>
 
     <!-- PL -->
@@ -89,7 +91,9 @@
                 <label><input type="checkbox" id="showStockInPL" checked> 株価を重ねて表示</label>
             </div>
         </div>
-        <div class="chart-container"><canvas id="plChart"></canvas></div>
+        <div class="chart-container">
+            <canvas id="plChart" height="250"></canvas> <!-- ここに height -->
+        </div>
     </div>
 
     <div id="loading" style="display:none;">データを読み込んでいます...</div>
@@ -211,11 +215,11 @@
                         label: '株価（円）',
                         data: stock.map(s => s.price),
                         borderColor: '#FF9800',
-                        backgroundColor: 'transparent',  // 線だけ
+                        backgroundColor: 'transparent',
                         yAxisID: 'y1',
                         spanGaps: true,
-                        fill: false,  // 塗りつぶしなし
-                        pointRadius: 0,  // 点なし
+                        fill: false,
+                        pointRadius: 0,
                         borderWidth: 2
                     });
                 }
@@ -225,6 +229,7 @@
                     data: { labels, datasets },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,  // これで高さ固定
                         interaction: { mode: 'index', intersect: false },
                         plugins: { legend: { position: 'top' } },
                         scales: {
@@ -232,7 +237,7 @@
                                 type: 'time',
                                 time: {
                                     unit: 'day',
-                                    displayFormats: { day: 'yyyy/MM/dd' }  // 年付き
+                                    displayFormats: { day: 'yyyy/MM/dd' }
                                 },
                                 title: { display: true, text: '日付' }
                             },
