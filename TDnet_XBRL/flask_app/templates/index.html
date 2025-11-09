@@ -25,8 +25,19 @@
         .metric-button {padding:12px;font-size:14px;background:#e0e0e0;color:#333;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:all .3s;}
         .metric-button:hover {background:#d0d0d0;}
         .metric-button.active {background:#2196F3;color:#fff;border-color:#1976D2;}
-        /* 高さは canvas に直接設定 */
-        .chart-container {background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);margin-bottom:20px;position:relative;}
+
+        /* 高さ 350px 固定 */
+        .chart-container {
+            background:#fff;
+            padding:20px;
+            border-radius:8px;
+            box-shadow:0 2px 4px rgba(0,0,0,.1);
+            margin-bottom:20px;
+            position:relative;
+            height: 350px;  /* ここで高さ固定 */
+            overflow: hidden;
+        }
+
         .stock-checkbox {background:#fff3e0;padding:12px;border-radius:8px;margin-top:15px;border-left:4px solid #ff9800;}
         .stock-checkbox label {display:inline;color:#e65100;cursor:pointer;}
         #loading {text-align:center;padding:40px;color:#666;}
@@ -38,8 +49,8 @@
     <h1>財務データ分析ツール</h1>
 
     <div class="info-box">
-        <p><strong>グラフ高さ 250px 固定！</strong></p>
-        <p>canvas に直接高さを設定 → 確実に反映</p>
+        <p><strong>グラフ高さ 350px 固定！</strong></p>
+        <p>canvas + コンテナで完全制御。デフォルトの高さも正常。</p>
     </div>
 
     <div class="controls">
@@ -73,7 +84,7 @@
             </div>
         </div>
         <div class="chart-container">
-            <canvas id="bsChart" height="250"></canvas> <!-- ここに height -->
+            <canvas id="bsChart" height="350"></canvas> <!-- canvas にも高さ -->
         </div>
     </div>
 
@@ -92,7 +103,7 @@
             </div>
         </div>
         <div class="chart-container">
-            <canvas id="plChart" height="250"></canvas> <!-- ここに height -->
+            <canvas id="plChart" height="350"></canvas> <!-- canvas にも高さ -->
         </div>
     </div>
 
