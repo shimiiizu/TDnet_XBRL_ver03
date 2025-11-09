@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>財務データ分析ツール - BS & PL</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- 時間軸用アダプター（日次表示に必須） -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -30,15 +33,7 @@
             font-weight: bold;
             color: #555;
         }
-        select {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: white;
-        }
-        input[type="text"] {
+        select, input[type="text"] {
             width: 100%;
             padding: 10px;
             font-size: 16px;
@@ -128,7 +123,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             position: relative;
-            height: 500px;
+            height: 350px; /* 500px → 350px */
             margin-bottom: 20px;
         }
         .stock-checkbox {
@@ -184,10 +179,10 @@
     </style>
 </head>
 <body>
-    <h1>📊 財務データ分析ツール</h1>
+    <h1>財務データ分析ツール</h1>
 
     <div class="info-box">
-        <p><strong>💡 このツールについて：</strong></p>
+        <p><strong>このツールについて：</strong></p>
         <p>企業の貸借対照表(BS)と損益計算書(PL)のデータを時系列で可視化します。チェックボックスをONにすると株価を重ねて表示できます。</p>
     </div>
 
@@ -226,19 +221,6 @@
         <div class="chart-container">
             <canvas id="bsChart"></canvas>
         </div>
-
-        <table class="data-table" id="bsTable" style="display: none;">
-            <thead>
-                <tr>
-                    <th>決算日</th>
-                    <th>総資産</th>
-                    <th>純資産</th>
-                    <th>自己資本</th>
-                    <th>流動資産</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
     </div>
 
     <div id="pl-content" class="tab-content">
@@ -258,24 +240,25 @@
         <div class="chart-container">
             <canvas id="plChart"></canvas>
         </div>
-
-        <table class="data-table" id="plTable" style="display: none;">
-            <thead>
-                <tr>
-                    <th>公表日</th>
-                    <th>売上高</th>
-                    <th>営業利益</th>
-                    <th>経常利益</th>
-                    <th>純利益</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
     </div>
 
     <div id="loading" style="display:none;">データを読み込んでいます...</div>
 
     <script>
+        // 日本語ラベルマッピング
+        const metricNames = {
+            assets: '総資産',
+            netAssets: '純資産',
+            currentAssets: '流動資産',
+            cash: '現金・預金',
+            ppe: '有形固定資産',
+            retainedEarnings: '利益剰余金',
+            netSales: '売上高',
+            operatingIncome: '営業利益',
+            ordinaryIncome: '経常利益',
+            netIncome: '純利益'
+        };
+
         let bsChart, plChart;
 
         async function loadCompanies() {
@@ -351,40 +334,66 @@
             showStockCheckbox.addEventListener('change', drawChart);
 
             function drawChart() {
-                const labels = data.map(d => d.date || d.term);
-                const metricValues = data.map(d => d[activeMetric]);
+                // ラベルを株価の日次データに合わせる（なければBS/PLの日付）
+                let labels = stock && stock.length ? stock.map(s => s.date) : data.map(d => d.date || d.term);
+                const activeLabel = metricNames[activeMetric] || activeMetric;
+
+                // BS/PLの値をラベルに合わせてマッピング
+                const dataMap = {};
+                data.forEach(d => {
+                    const key = d.date || d.term;
+                    dataMap[key] = d[activeMetric];
+                });
+                const metricValues = labels.map(date => dataMap[date] ?? null);
+
+                // 株価の値（日次）
+                const stockValues = showStockCheckbox.checked && stock && stock.length
+                    ? stock.map(s => s.price)
+                    : [];
+
                 const datasets = [{
-                    label: activeMetric,
+                    label: activeLabel,
                     data: metricValues,
                     borderColor: '#2196F3',
                     backgroundColor: 'rgba(33,150,243,0.2)',
-                    yAxisID: 'y'
+                    yAxisID: 'y',
+                    spanGaps: true
                 }];
+
                 if (showStockCheckbox.checked && stock && stock.length) {
                     datasets.push({
-                        label: '株価',
-                        data: stock.map(s => s.price),
+                        label: '株価（円）',
+                        data: stockValues,
                         borderColor: '#FF9800',
                         backgroundColor: 'rgba(255,152,0,0.2)',
-                        yAxisID: 'y1'
+                        yAxisID: 'y1',
+                        spanGaps: true
                     });
                 }
+
+                // チャート破棄
                 if (type === 'bs' && bsChart) bsChart.destroy();
                 if (type === 'pl' && plChart) plChart.destroy();
+
                 const chart = new Chart(ctx, {
                     type: 'line',
                     data: { labels, datasets },
                     options: {
                         responsive: true,
                         interaction: { mode: 'index', intersect: false },
-                        stacked: false,
                         plugins: { legend: { position: 'top' } },
                         scales: {
-                            y: { type: 'linear', position: 'left', title: { display: true, text: '金額 (百万円)' } },
-                            y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
+                            x: {
+                                type: 'time',
+                                time: { unit: 'day', displayFormats: { day: 'MM/DD' } },
+                                title: { display: true, text: '日付' }
+                            },
+                            y: { position: 'left', title: { display: true, text: '金額 (百万円)' } },
+                            y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
                         }
                     }
                 });
+
                 if (type === 'bs') bsChart = chart; else plChart = chart;
             }
             drawChart();
@@ -412,7 +421,7 @@
             }
         }
 
-        window.addEventListener('DOMContentLoaded', loadCompanies);
+        window.addEventListener25('DOMContentLoaded', loadCompanies);
     </script>
 </body>
 </html>
