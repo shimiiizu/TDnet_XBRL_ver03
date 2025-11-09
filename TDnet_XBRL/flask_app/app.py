@@ -6,7 +6,7 @@ import yfinance as yf
 
 app = Flask(__name__)
 
-# データベースパス（プロジェクトルート/db）
+# データベースファイルのパス（相対パスで取得）
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 BS_DB_PATH = os.path.join(project_root, 'db', 'BS_DB.db')
@@ -17,12 +17,14 @@ print(f"PLデータベースパス: {PL_DB_PATH}")
 
 
 def get_bs_db_connection():
+    """BS用のデータベース接続"""
     conn = sqlite3.connect(BS_DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def get_pl_db_connection():
+    """PL用のデータベース接続"""
     conn = sqlite3.connect(PL_DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -35,173 +37,341 @@ def index():
 
 @app.route('/api/companies')
 def get_companies():
+    """全社名リストを取得（BSとPLから）"""
     companies_dict = {}
 
-    # BSから取得
+    # BSデータベースから取得
     try:
-        conn = get_bs_db_connection()
-        rows = conn.execute('SELECT DISTINCT CompanyName, Code FROM BS WHERE Code IS NOT NULL').fetchall()
-        for row in rows:
-            code = row['Code']
-            companies_dict[code] = {'name': row['CompanyName'], 'code': code, 'hasBS': True, 'hasPL': False}
-        conn.close()
-    except Exception as e:
-        print(f"BS会社リスト取得エラー: {e}")
+        conn_bs = get_bs_db_connection()
+        bs_companies = conn_bs.execute('''
+            SELECT DISTINCT CompanyName, Code 
+            FROM BS 
+            WHERE Code IS NOT NULL
+            ORDER BY CompanyName
+        ''').fetchall()
+        conn_bs.close()
 
-    # PLから取得
+        for company in bs_companies:
+            code = company['Code']
+            companies_dict[code] = {
+                'name': company['CompanyName'],
+                'code': code,
+                'hasBS': True,
+                'hasPL': False
+            }
+    except Exception as e:
+        print(f"BS取得エラー: {e}")
+
+    # PLデータベースから取得
     try:
-        conn = get_pl_db_connection()
-        rows = conn.execute('SELECT DISTINCT Code FROM PL WHERE Code IS NOT NULL').fetchall()
-        for row in rows:
-            code = row['Code']
+        conn_pl = get_pl_db_connection()
+        pl_companies = conn_pl.execute('''
+            SELECT DISTINCT Code 
+            FROM PL 
+            WHERE Code IS NOT NULL
+        ''').fetchall()
+        conn_pl.close()
+
+        for company in pl_companies:
+            code = company['Code']
             if code in companies_dict:
                 companies_dict[code]['hasPL'] = True
             else:
-                companies_dict[code] = {'name': f'Company {code}', 'code': code, 'hasBS': False, 'hasPL': True}
-        conn.close()
+                companies_dict[code] = {
+                    'name': f'Company {code}',
+                    'code': code,
+                    'hasBS': False,
+                    'hasPL': True
+                }
     except Exception as e:
-        print(f"PL会社リスト取得エラー: {e}")
+        print(f"PL取得エラー: {e}")
 
     return jsonify(list(companies_dict.values()))
 
 
+@app.route('/api/company/<code>')
+def get_company_by_code(code):
+    """証券コードで会社を検索"""
+    conn_bs = get_bs_db_connection()
+
+    company = conn_bs.execute('''
+        SELECT DISTINCT CompanyName, Code 
+        FROM BS 
+        WHERE Code = ?
+        LIMIT 1
+    ''', (code,)).fetchone()
+    conn_bs.close()
+
+    if company:
+        # PLデータの有無を確認
+        try:
+            conn_pl = get_pl_db_connection()
+            pl_exists = conn_pl.execute('''
+                SELECT COUNT(*) as count FROM PL WHERE Code = ?
+            ''', (code,)).fetchone()
+            conn_pl.close()
+            has_pl = pl_exists['count'] > 0
+        except:
+            has_pl = False
+
+        return jsonify({
+            'name': company['CompanyName'],
+            'code': company['Code'],
+            'hasBS': True,
+            'hasPL': has_pl
+        })
+    else:
+        return jsonify({'error': 'Company not found'}), 404
+
+
+@app.route('/api/stock-price/<code>')
+def get_stock_price(code):
+    """株価データを取得"""
+    try:
+        # 日本株の証券コード（.Tを付ける）
+        ticker = f"{code}.T"
+        stock = yf.Ticker(ticker)
+
+        # 過去10年分のデータを取得
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=10 * 365)
+        hist = stock.history(start=start_date, end=end_date)
+
+        if hist.empty:
+            return jsonify({'error': 'No stock data found'}), 404
+
+        # データを整形
+        stock_data = []
+        for index, row in hist.iterrows():
+            stock_data.append({
+                'date': index.strftime('%Y-%m-%d'),
+                'close': float(row['Close'])
+            })
+
+        return jsonify(stock_data)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/bs-data/<company_name>')
 def get_bs_data(company_name):
+    """特定の会社のBSデータを取得"""
     conn = get_bs_db_connection()
-    rows = conn.execute('''
+    bs_data = conn.execute('''
         SELECT 
             EndDay,
             Assets,
             NetAssets,
+            Equity,
             CurrentAssets,
-            COALESCE(CashAndDeposits, CashAndCashEquivalent, 0) AS cash,
-            PropertyPlantAndEquipment AS ppe,
-            RetainedEarnings
+            CashAndDeposits,
+            CashAndCashEquivalent,
+            PropertyPlantAndEquipment,
+            RetainedEarnings,
+            AccountingStandard,
+            FinancialReportType
         FROM BS 
         WHERE CompanyName = ?
         ORDER BY EndDay
     ''', (company_name,)).fetchall()
     conn.close()
 
-    data = []
-    for row in rows:
-        data.append({
-            'term': row['EndDay'][:7],  # YYYY-MM
-            'assets': row['Assets'],
-            'netAssets': row['NetAssets'],
-            'currentAssets': row['CurrentAssets'],
-            'cash': row['cash'],
-            'ppe': row['ppe'],
-            'retainedEarnings': row['RetainedEarnings']
-        })
-    return jsonify(data)
+    return jsonify([{
+        'date': row['EndDay'],
+        'assets': row['Assets'],
+        'netAssets': row['NetAssets'],
+        'equity': row['Equity'],
+        'currentAssets': row['CurrentAssets'],
+        'cashAndDeposits': row['CashAndDeposits'],
+        'cashAndCashEquivalent': row['CashAndCashEquivalent'],
+        'propertyPlantAndEquipment': row['PropertyPlantAndEquipment'],
+        'retainedEarnings': row['RetainedEarnings'],
+        'accountingStandard': row['AccountingStandard'],
+        'financialReportType': row['FinancialReportType']
+    } for row in bs_data])
 
 
 @app.route('/api/pl-data/<code>')
 def get_pl_data(code):
-    conn = get_pl_db_connection()
-    rows = conn.execute('''
-        SELECT 
-            PublicDay,
-            NetSales,
-            OperatingIncome,
-            OrdinaryIncome,
-            NetIncome,
-            RevenueIFRS,
-            OperatingProfitLossIFRS,
-            ProfitLossIFRS
-        FROM PL 
-        WHERE Code = ?
-        ORDER BY PublicDay
-    ''', (code,)).fetchall()
-    conn.close()
-
-    data = []
-    for row in rows:
-        data.append({
-            'term': row['PublicDay'][:7],  # YYYY-MM
-            'netSales': row['NetSales'] or row['RevenueIFRS'],
-            'operatingIncome': row['OperatingIncome'] or row['OperatingProfitLossIFRS'],
-            'ordinaryIncome': row['OrdinaryIncome'],
-            'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
-        })
-    return jsonify(data)
-
-
-@app.route('/api/stock-price/<code>')
-def get_stock_price(code):
+    """特定の会社のPLデータを取得（証券コードで検索）"""
     try:
-        ticker = f"{code}.T"
-        stock = yf.Ticker(ticker)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=10 * 365)
-        hist = stock.history(start=start_date, end=end_date, interval="1d")
+        conn = get_pl_db_connection()
+        pl_data = conn.execute('''
+            SELECT 
+                Code,
+                FileName,
+                PublicDay,
+                NetSales,
+                SellingGeneralAndAdministrativeExpenses,
+                OperatingIncome,
+                OrdinaryIncome,
+                NetIncome,
+                RevenueIFRS,
+                SellingGeneralAndAdministrativeExpensesIFRS,
+                OperatingProfitLossIFRS,
+                ProfitLossIFRS,
+                DilutedEarningsLossPerShareIFRS
+            FROM PL 
+            WHERE Code = ?
+            ORDER BY PublicDay
+        ''', (code,)).fetchall()
+        conn.close()
 
-        if hist.empty:
-            return jsonify([])
+        # 累計額を単四半期額に変換
+        quarterly_data = []
+        prev_net_sales = 0
+        prev_operating_income = 0
+        prev_ordinary_income = 0
+        prev_net_income = 0
+        prev_year = None
 
-        data = []
-        for date, row in hist.iterrows():
-            data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'price': round(float(row['Close']), 2)
+        for row in pl_data:
+            public_day = row['PublicDay']
+            year = public_day[:4] if public_day else None
+
+            # 年が変わったら累計リセット（財政年度開始）
+            if prev_year and year != prev_year:
+                prev_net_sales = 0
+                prev_operating_income = 0
+                prev_ordinary_income = 0
+                prev_net_income = 0
+
+            # 売上高
+            net_sales = row['NetSales'] or row['RevenueIFRS'] or 0
+            quarterly_net_sales = net_sales - prev_net_sales if net_sales > prev_net_sales else net_sales
+            prev_net_sales = net_sales
+
+            # 営業利益
+            operating_income = row['OperatingIncome'] or row['OperatingProfitLossIFRS'] or 0
+            quarterly_operating_income = operating_income - prev_operating_income if operating_income > prev_operating_income else operating_income
+            prev_operating_income = operating_income
+
+            # 経常利益
+            ordinary_income = row['OrdinaryIncome'] or 0
+            quarterly_ordinary_income = ordinary_income - prev_ordinary_income if ordinary_income > prev_ordinary_income else ordinary_income
+            prev_ordinary_income = ordinary_income
+
+            # 純利益
+            net_income = row['NetIncome'] or row['ProfitLossIFRS'] or 0
+            quarterly_net_income = net_income - prev_net_income if net_income > prev_net_income else net_income
+            prev_net_income = net_income
+
+            quarterly_data.append({
+                'code': row['Code'],
+                'fileName': row['FileName'],
+                'publicDay': row['PublicDay'],
+                'netSales': quarterly_net_sales,
+                'sellingExpenses': row['SellingGeneralAndAdministrativeExpenses'],
+                'operatingIncome': quarterly_operating_income,
+                'ordinaryIncome': quarterly_ordinary_income,
+                'netIncome': quarterly_net_income,
+                'revenueIFRS': row['RevenueIFRS'],
+                'sellingExpensesIFRS': row['SellingGeneralAndAdministrativeExpensesIFRS'],
+                'operatingProfitLossIFRS': row['OperatingProfitLossIFRS'],
+                'profitLossIFRS': row['ProfitLossIFRS'],
+                'dilutedEarningsLossPerShareIFRS': row['DilutedEarningsLossPerShareIFRS']
             })
-        return jsonify(data)
+
+            prev_year = year
+
+        return jsonify(quarterly_data)
 
     except Exception as e:
-        print(f"株価取得エラー ({code}): {e}")
-        return jsonify([]), 500
-
-
-@app.route('/api/company/<code>')
-def get_company_by_code(code):
-    conn = get_bs_db_connection()
-    row = conn.execute('SELECT DISTINCT CompanyName FROM BS WHERE Code = ? LIMIT 1', (code,)).fetchone()
-    conn.close()
-    if row:
-        return jsonify({'name': row['CompanyName'], 'code': code})
-    return jsonify({'error': 'Not found'}), 404
+        print(f"PLデータ取得エラー: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/financial-summary/<code>')
 def get_financial_summary(code):
+    """BSとPLの統合データを取得"""
     try:
+        # 会社情報を取得
         conn_bs = get_bs_db_connection()
-        company = conn_bs.execute('SELECT DISTINCT CompanyName FROM BS WHERE Code = ? LIMIT 1', (code,)).fetchone()
+        company = conn_bs.execute('''
+            SELECT DISTINCT CompanyName, Code 
+            FROM BS 
+            WHERE Code = ?
+            LIMIT 1
+        ''', (code,)).fetchone()
+
         if not company:
             return jsonify({'error': 'Company not found'}), 404
 
-        bs_rows = conn_bs.execute('SELECT EndDay, Assets, NetAssets FROM BS WHERE Code = ? ORDER BY EndDay', (code,)).fetchall()
+        # BSデータを取得
+        bs_data = conn_bs.execute('''
+            SELECT 
+                EndDay as date,
+                Assets,
+                NetAssets,
+                Equity,
+                CurrentAssets
+            FROM BS 
+            WHERE Code = ?
+            ORDER BY EndDay
+        ''', (code,)).fetchall()
         conn_bs.close()
 
+        # PLデータを取得
         conn_pl = get_pl_db_connection()
-        pl_rows = conn_pl.execute('SELECT PublicDay, NetSales, OperatingIncome FROM PL WHERE Code = ? ORDER BY PublicDay', (code,)).fetchall()
+        pl_data = conn_pl.execute('''
+            SELECT 
+                PublicDay as date,
+                NetSales,
+                OperatingIncome,
+                OrdinaryIncome,
+                NetIncome,
+                RevenueIFRS,
+                OperatingProfitLossIFRS,
+                ProfitLossIFRS
+            FROM PL 
+            WHERE Code = ?
+            ORDER BY PublicDay
+        ''', (code,)).fetchall()
         conn_pl.close()
 
         return jsonify({
-            'company': {'name': company['CompanyName'], 'code': code},
-            'bs': [{'date': r['EndDay'][:7], 'assets': r['Assets'], 'netAssets': r['NetAssets']} for r in bs_rows],
-            'pl': [{'date': r['PublicDay'][:7], 'netSales': r['NetSales'], 'operatingIncome': r['OperatingIncome']} for r in pl_rows]
+            'company': {
+                'name': company['CompanyName'],
+                'code': company['Code']
+            },
+            'bs': [{
+                'date': row['date'],
+                'assets': row['Assets'],
+                'netAssets': row['NetAssets'],
+                'equity': row['Equity'],
+                'currentAssets': row['CurrentAssets']
+            } for row in bs_data],
+            'pl': [{
+                'date': row['date'],
+                'netSales': row['NetSales'] or row['RevenueIFRS'],
+                'operatingIncome': row['OperatingIncome'] or row['OperatingProfitLossIFRS'],
+                'ordinaryIncome': row['OrdinaryIncome'],
+                'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
+            } for row in pl_data]
         })
+
     except Exception as e:
+        print(f"統合データ取得エラー: {e}")
         return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
+    # データベースの存在確認
     bs_exists = os.path.exists(BS_DB_PATH)
     pl_exists = os.path.exists(PL_DB_PATH)
 
     if bs_exists:
-        print(f"BSデータベース: {BS_DB_PATH}")
+        print(f"✓ BSデータベースが見つかりました: {BS_DB_PATH}")
     else:
-        print(f"BS DB なし: {BS_DB_PATH}")
+        print(f"⚠ BSデータベースが見つかりません: {BS_DB_PATH}")
 
     if pl_exists:
-        print(f"PLデータベース: {PL_DB_PATH}")
+        print(f"✓ PLデータベースが見つかりました: {PL_DB_PATH}")
     else:
-        print(f"PL DB なし: {PL_DB_PATH}")
+        print(f"⚠ PLデータベースが見つかりません: {PL_DB_PATH}")
 
     if bs_exists or pl_exists:
         app.run(debug=True, port=5001)
     else:
-        print("データベースが見つからないため起動できません")
+        print("エラー: データベースが見つかりません")
