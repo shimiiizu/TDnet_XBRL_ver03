@@ -3,6 +3,7 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 import yfinance as yf
+from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -29,70 +30,108 @@ def get_pl_db_connection():
 
 
 def convert_to_quarterly(data):
-    """累計データを四半期ごとの差分データに変換"""
+    """累計データを四半期ごとの差分に変換"""
     if not data:
         return []
 
-    # 会計年度ごとにグループ化
-    fiscal_groups = {}
+    def safe_num(x):
+        if x is None:
+            return None
+        try:
+            return float(x)
+        except Exception:
+            return None
+
     metrics = ['netSales', 'operatingIncome', 'ordinaryIncome', 'netIncome']
 
+    parsed = []
     for item in data:
+        term = item.get('term')
+        if not term:
+            continue
         try:
-            # PublicDayから年月を取得
-            pub_day = item['term']  # YYYY-MM形式
-            date_parts = pub_day.split('-')
-            year = int(date_parts[0])
-            month = int(date_parts[1])
-        except:
+            y_str, m_str = term.split('-')[:2]
+            year = int(y_str)
+            month = int(m_str)
+        except Exception:
             continue
 
-        # 会計年度と四半期を決定（3月決算想定）
-        if 1 <= month <= 3:
-            fiscal_year = year - 1
-            quarter = 4
-        elif 4 <= month <= 6:
+        # 3月決算想定: Apr-Jun Q1, Jul-Sep Q2, Oct-Dec Q3, Jan-Mar Q4
+        if 4 <= month <= 6:
             fiscal_year = year
             quarter = 1
         elif 7 <= month <= 9:
             fiscal_year = year
             quarter = 2
-        else:  # 10-12
+        elif 10 <= month <= 12:
             fiscal_year = year
             quarter = 3
+        else:  # 1-3
+            fiscal_year = year - 1
+            quarter = 4
 
-        if fiscal_year not in fiscal_groups:
-            fiscal_groups[fiscal_year] = []
+        # 四半期終了日のソートキー
+        if quarter == 1:
+            end_year, end_month, end_day = fiscal_year, 6, 30
+        elif quarter == 2:
+            end_year, end_month, end_day = fiscal_year, 9, 30
+        elif quarter == 3:
+            end_year, end_month, end_day = fiscal_year, 12, 31
+        else:
+            end_year, end_month, end_day = fiscal_year + 1, 3, 31
 
-        fiscal_groups[fiscal_year].append({**item, 'quarter': quarter})
+        sort_key = (end_year, end_month, end_day)
 
-    # 各年度内で差分計算
+        parsed_item = {
+            'original': item,
+            'term': term,
+            'fiscalYear': fiscal_year,
+            'quarter': quarter,
+            'sort_key': sort_key
+        }
+        for m in metrics:
+            parsed_item[m] = safe_num(item.get(m))
+        parsed.append(parsed_item)
+
+    groups = defaultdict(list)
+    for p in parsed:
+        groups[p['fiscalYear']].append(p)
+
     result = []
-    for fiscal_year in sorted(fiscal_groups.keys()):
-        year_data = sorted(fiscal_groups[fiscal_year], key=lambda x: x['quarter'])
 
-        for i, current in enumerate(year_data):
-            new_item = current.copy()
-            del new_item['quarter']
+    for fy in sorted(groups.keys()):
+        year_group = groups[fy]
+        year_group.sort(key=lambda x: x['sort_key'])
 
-            if i == 0:
-                # Q1はそのまま
-                result.append(new_item)
-            else:
-                # Q2以降は前四半期との差分
-                previous = year_data[i - 1]
+        previous = None
+        for item in year_group:
+            out = dict(item['original'])
+            for m in metrics:
+                cur = item.get(m)
+                prev = previous.get(m) if previous is not None else None
 
-                for metric in metrics:
-                    current_val = current.get(metric)
-                    previous_val = previous.get(metric)
+                if cur is None:
+                    out[m] = None
+                else:
+                    if prev is None:
+                        out[m] = cur
+                    else:
+                        out[m] = cur - prev
 
-                    if current_val is not None and previous_val is not None:
-                        new_item[metric] = current_val - previous_val
+                    if out[m] is not None and float(out[m]).is_integer():
+                        out[m] = int(out[m])
 
-                result.append(new_item)
+            out['_fiscalYear'] = item['fiscalYear']
+            out['_quarter'] = item['quarter']
+            result.append(out)
+            previous = item
 
-    # 日付順にソート
-    result.sort(key=lambda x: x['term'])
+    # 終了日順でソート
+    result.sort(key=lambda x: (
+        (x.get('_fiscalYear') if x.get('_quarter') != 4 else x.get('_fiscalYear') + 1),
+        {1: 6, 2: 9, 3: 12, 4: 3}[x.get('_quarter')],
+        {1: 30, 2: 30, 3: 31, 4: 31}[x.get('_quarter')]
+    ))
 
     return result
 
@@ -155,7 +194,7 @@ def get_bs_data(company_name):
     data = []
     for row in rows:
         data.append({
-            'term': row['EndDay'][:7],  # YYYY-MM
+            'term': row['EndDay'][:7],
             'assets': row['Assets'],
             'netAssets': row['NetAssets'],
             'currentAssets': row['CurrentAssets'],
@@ -187,22 +226,18 @@ def get_pl_data(code):
         ''', (code,)).fetchall()
         conn.close()
 
-        # 累計データの配列を作成
         data = []
         for row in rows:
             data.append({
-                'term': row['PublicDay'][:7],  # YYYY-MM
+                'term': row['PublicDay'][:7],
                 'netSales': row['NetSales'] or row['RevenueIFRS'],
                 'operatingIncome': row['OperatingIncome'] or row['OperatingProfitLossIFRS'],
                 'ordinaryIncome': row['OrdinaryIncome'],
                 'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
             })
 
-        # 四半期ごとの差分に変換
         converted_data = convert_to_quarterly(data)
-
         print(f"PLデータ変換: {len(data)}件 → {len(converted_data)}件（四半期ごと）")
-
         return jsonify(converted_data)
 
     except Exception as e:
@@ -222,12 +257,8 @@ def get_stock_price(code):
         if hist.empty:
             return jsonify([])
 
-        data = []
-        for date, row in hist.iterrows():
-            data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'price': round(float(row['Close']), 2)
-            })
+        data = [{'date': date.strftime('%Y-%m-%d'), 'price': round(float(row['Close']), 2)}
+                for date, row in hist.iterrows()]
         return jsonify(data)
 
     except Exception as e:
@@ -265,8 +296,8 @@ def get_financial_summary(code):
         return jsonify({
             'company': {'name': company['CompanyName'], 'code': code},
             'bs': [{'date': r['EndDay'][:7], 'assets': r['Assets'], 'netAssets': r['NetAssets']} for r in bs_rows],
-            'pl': [{'date': r['PublicDay'][:7], 'netSales': r['NetSales'], 'operatingIncome': r['OperatingIncome']} for
-                   r in pl_rows]
+            'pl': [{'date': r['PublicDay'][:7], 'netSales': r['NetSales'], 'operatingIncome': r['OperatingIncome']}
+                   for r in pl_rows]
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
