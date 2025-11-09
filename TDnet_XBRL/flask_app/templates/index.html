@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>財務データ分析ツール - BS & PL</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            background-color: #e0e0e0;
+            color: #333;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .tab:hover {
+            background-color: #d0d0d0;
+        }
+        .tab.active {
+            background-color: #2196F3;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .metric-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .metric-button {
+            padding: 12px;
+            font-size: 14px;
+            background-color: #e0e0e0;
+            color: #333;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .metric-button:hover {
+            background-color: #d0d0d0;
+        }
+        .metric-button.active {
+            background-color: #2196F3;
+            color: white;
+            border-color: #1976D2;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            height: 500px;
+            margin-bottom: 20px;
+        }
+        .stock-checkbox {
+            background: #fff3e0;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ff9800;
+        }
+        .stock-checkbox label {
+            display: inline;
+            margin-bottom: 0;
+            color: #e65100;
+            cursor: pointer;
+        }
+        #loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .info-box p {
+            margin: 5px 0;
+            color: #1565C0;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .data-table th {
+            background: #2196F3;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .data-table tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 財務データ分析ツール</h1>
+
+    <div class="info-box">
+        <p><strong>💡 このツールについて：</strong></p>
+        <p>企業の貸借対照表(BS)と損益計算書(PL)のデータを時系列で可視化します。チェックボックスをONにすると株価を重ねて表示できます。</p>
+    </div>
+
+    <div class="controls">
+        <label for="codeInput">証券コードで検索:</label>
+        <input type="text" id="codeInput" placeholder="例: 9504" />
+        <button id="searchButton">検索</button>
+
+        <label for="companySelect" style="margin-top: 20px;">または会社を選択:</label>
+        <select id="companySelect">
+            <option value="">読み込み中...</option>
+        </select>
+    </div>
+
+    <div class="tabs" id="mainTabs" style="display: none;">
+        <button class="tab active" onclick="switchTab('bs')">貸借対照表 (BS)</button>
+        <button class="tab" onclick="switchTab('pl')">損益計算書 (PL)</button>
+    </div>
+
+    <div id="bs-content" class="tab-content active">
+        <div class="controls">
+            <label>表示する指標を選択:</label>
+            <div class="metric-selector" id="bsMetrics">
+                <button class="metric-button active" data-metric="assets">総資産</button>
+                <button class="metric-button" data-metric="netAssets">純資産</button>
+                <button class="metric-button" data-metric="currentAssets">流動資産</button>
+                <button class="metric-button" data-metric="cash">現金・預金</button>
+                <button class="metric-button" data-metric="ppe">有形固定資産</button>
+                <button class="metric-button" data-metric="retainedEarnings">利益剰余金</button>
+            </div>
+            <div class="stock-checkbox">
+                <label><input type="checkbox" id="showStockInBS"> 株価を重ねて表示</label>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="bsChart"></canvas>
+        </div>
+
+        <table class="data-table" id="bsTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>決算日</th>
+                    <th>総資産</th>
+                    <th>純資産</th>
+                    <th>自己資本</th>
+                    <th>流動資産</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="pl-content" class="tab-content">
+        <div class="controls">
+            <label>表示する指標を選択:</label>
+            <div class="metric-selector" id="plMetrics">
+                <button class="metric-button active" data-metric="netSales">売上高</button>
+                <button class="metric-button" data-metric="operatingIncome">営業利益</button>
+                <button class="metric-button" data-metric="ordinaryIncome">経常利益</button>
+                <button class="metric-button" data-metric="netIncome">純利益</button>
+            </div>
+            <div class="stock-checkbox">
+                <label><input type="checkbox" id="showStockInPL"> 株価を重ねて表示</label>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="plChart"></canvas>
+        </div>
+
+        <table class="data-table" id="plTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>公表日</th>
+                    <th>売上高</th>
+                    <th>営業利益</th>
+                    <th>経常利益</th>
+                    <th>純利益</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="loading" style="display:none;">データを読み込んでいます...</div>
+
+    <script>
+        let bsChart, plChart;
+
+        async function loadCompanies() {
+            const select = document.getElementById('companySelect');
+            const loading = document.getElementById('loading');
+            try {
+                loading.style.display = 'block';
+                const response = await fetch('/api/companies');
+                const companies = await response.json();
+                select.innerHTML = '<option value="">会社を選択してください</option>';
+                companies.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.code;
+                    opt.textContent = `${c.name} (${c.code})`;
+                    select.appendChild(opt);
+                });
+                loading.style.display = 'none';
+                select.addEventListener('change', async () => {
+                    if (select.value) {
+                        const company = companies.find(c => c.code === select.value);
+                        await loadAllData(company.code, company.name);
+                    }
+                });
+                document.getElementById('searchButton').addEventListener('click', searchByCode);
+            } catch (err) {
+                console.error('会社リスト取得失敗:', err);
+                alert('会社リストの取得に失敗しました');
+                loading.style.display = 'none';
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`${tab}-content`).classList.add('active');
+        }
+
+        async function loadAllData(code, name) {
+            document.getElementById('mainTabs').style.display = 'flex';
+            document.getElementById('loading').style.display = 'block';
+            try {
+                const [bs, pl, stock] = await Promise.all([
+                    fetch(`/api/bs-data/${name}`).then(r => r.json()),
+                    fetch(`/api/pl-data/${code}`).then(r => r.json()),
+                    fetch(`/api/stock-price/${code}`).then(r => r.json())
+                ]);
+                renderChart('bs', bs, stock);
+                renderChart('pl', pl, stock);
+            } catch (err) {
+                console.error(err);
+                alert('データの取得に失敗しました');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function renderChart(type, data, stock) {
+            const ctx = document.getElementById(`${type}Chart`).getContext('2d');
+            const metricButtons = document.querySelectorAll(`#${type}Metrics .metric-button`);
+            let activeMetric = document.querySelector(`#${type}Metrics .metric-button.active`).dataset.metric;
+
+            metricButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    metricButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    activeMetric = btn.dataset.metric;
+                    drawChart();
+                });
+            });
+
+            const showStockCheckbox = document.getElementById(`showStockIn${type.toUpperCase()}`);
+            showStockCheckbox.addEventListener('change', drawChart);
+
+            function drawChart() {
+                const labels = data.map(d => d.date || d.term);
+                const metricValues = data.map(d => d[activeMetric]);
+                const datasets = [{
+                    label: activeMetric,
+                    data: metricValues,
+                    borderColor: '#2196F3',
+                    backgroundColor: 'rgba(33,150,243,0.2)',
+                    yAxisID: 'y'
+                }];
+                if (showStockCheckbox.checked && stock && stock.length) {
+                    datasets.push({
+                        label: '株価',
+                        data: stock.map(s => s.price),
+                        borderColor: '#FF9800',
+                        backgroundColor: 'rgba(255,152,0,0.2)',
+                        yAxisID: 'y1'
+                    });
+                }
+                if (type === 'bs' && bsChart) bsChart.destroy();
+                if (type === 'pl' && plChart) plChart.destroy();
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        interaction: { mode: 'index', intersect: false },
+                        stacked: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            y: { type: 'linear', position: 'left', title: { display: true, text: '金額 (百万円)' } },
+                            y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
+                        }
+                    }
+                });
+                if (type === 'bs') bsChart = chart; else plChart = chart;
+            }
+            drawChart();
+        }
+
+        async function searchByCode() {
+            const code = document.getElementById('codeInput').value.trim();
+            if (!code) {
+                alert('証券コードを入力してください');
+                return;
+            }
+            try {
+                const companies = await fetch('/api/companies').then(r => r.json());
+                const company = companies.find(c => c.code === code);
+                if (!company) {
+                    alert('指定された証券コードの会社が見つかりません');
+                    return;
+                }
+                const select = document.getElementById('companySelect');
+                select.value = company.code;
+                await loadAllData(company.code, company.name);
+            } catch (error) {
+                console.error('検索エラー:', error);
+                alert('会社データの検索に失敗しました');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadCompanies);
+    </script>
+</body>
+</html>

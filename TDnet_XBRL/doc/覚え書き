@@ -1,0 +1,85 @@
+<ループ構造>
+
+-bs
+    -qcbs
+        -ifrs
+        -japan_gaap
+    -acbs
+         -ifrs
+        -japan_gaap
+
+①bs_qcbs_ifrs
+②bs_qcbs_japan_gaap
+③bs_acbs_ifrs
+④bs_acbs_japan_gaap
+
+①〰④をそれぞれ、Classにした方が見通しが良くなるか？
+Classにする場合の構造
+
+
+bs_qcbs
+	-ifrs
+	-japan_gaap
+
+bs_acbs
+	-ifrs
+	_japan_gaap
+
+インスタンスメソッドって引数self以外を持つ必要ある？
+
+------------------------------------
+Class BS_qcbs_ifrs_:
+
+    def __init__(self, code, folder_path):
+        self.code = code
+        self.folder_path = folder_path
+        self.bs_file_path_lists = mb.get_acbs_list(os.path.join(folder_path, code))
+
+    def process_bs_files(self, bs_file_path_lists):
+        for bs_file_path in bs_file_path_lists:
+            pbc.print_bs_common_info(bs_file_path)
+            pbi.print_bs_ifrs_info(bs_file_path)
+            cd.create_bs_db_record(bs_file_path)
+
+---------------------------------------------------
+------------------------------------
+Class BSRecod:
+
+    def __init__(self, bs_file_paths):
+        self.bs_file_paths = bs_file_paths
+        
+    def bsrecord(self):
+        for bs_file_path in self.bs_file_paths:
+		print(bs_file_path)
+
+		accounting_standard = px.get_AccountingStandard(bs_file_path)
+
+            	if accounting_standard == "IFRS":
+            		bs_common_printer.print_bs_common_info(bs_file_path)
+            		bs_ifrs_printer.print_bs_ifrs_info(bs_file_path)
+            		bs_db_record.create_bs_db_record(bs_file_path)
+
+		elif accounting_standard == "Japan GAAP":
+			bs_common_printer.print_bs_common_info(bs_file_path)
+			bs_japan_gaap_printer.print_bs_japan_gaap_info(bs_file_path)
+			bs_db_record.create_bs_db_record(bs_file_path)
+            	else:
+			bs_common_printer.print_bs_common_info(bs_file_path)
+			bs_db_record.create_bs_db_record(bs_file_path)
+
+---------------------------------------------------
+
+
+
+今後やりたいこと。
+
+命名規則の適用
+
+Classは大文字で始める。
+
+モジュールと関数は全て小文字
+
+ファイルがモジュール
+
+関数は動詞_名詞
+モジュールは名詞
