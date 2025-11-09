@@ -2,6 +2,56 @@ from bs4 import BeautifulSoup
 import os
 
 
+def _safe_get_value(tag, decimals_target=-8):
+    """
+    タグから値を安全に取得する汎用関数
+
+    Args:
+        tag: BeautifulSoupのタグオブジェクト
+        decimals_target: 目標の単位（-8=億円）
+
+    Returns:
+        変換後の数値、または取得できない場合はNone
+    """
+    if tag is None:
+        return None
+
+    try:
+        decimals_value = tag.get("decimals")
+        if decimals_value is None:
+            return None
+
+        decimals_value = int(decimals_value)
+        exchange_ratio = 10 ** (decimals_target - decimals_value)
+
+        value_text = tag.text.strip()
+        if not value_text or value_text == '-':
+            return None
+
+        value = int(value_text.replace(",", ""))
+        result = round(value * exchange_ratio, 1)
+        return result
+    except Exception as e:
+        print(f"値の変換エラー: {e}")
+        return None
+
+
+def _get_contextref(file_name):
+    """ファイル名からcontextrefを決定"""
+    if 'ac' in file_name:
+        return "CurrentYearDuration"
+    elif 'qcpl23' in file_name:
+        return "CurrentQuarterDuration"
+    elif 'qcpl11' in file_name:
+        return "CurrentYTDDuration"
+    elif 'an' in file_name:
+        return "CurrentYearDuration_NonConsolidatedMember"
+    elif 'qn' in file_name:
+        return "CurrentQuarterDuration_NonConsolidatedMember"
+    else:
+        return "CurrentYearDuration"  # デフォルト
+
+
 # 売上(億円)を取得する関数
 def get_NetSales(xbrl_path):
     try:
@@ -10,46 +60,15 @@ def get_NetSales(xbrl_path):
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        if 'ac' in file_name:
-            contextref = "CurrentYearDuration"
-        elif 'qcpl23' in file_name:
-            contextref = "CurrentQuarterDuration"
-        elif 'qcpl11' in file_name:
-            contextref = "CurrentYTDDuration"
-        elif 'an' in file_name:
-            contextref = "CurrentYearDuration_NonConsolidatedMember"
-        elif 'qn' in file_name:
-            contextref = "CurrentQuarterDuration_NonConsolidatedMember"
-        else:
-            print(f'警告: 未知のファイル名パターン: {file_name}')
-            return None
-
+        contextref = _get_contextref(file_name)
         tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jppfs_cor:NetSales"})
 
-        if tag is None:
-            print(f'警告: NetSalesタグが見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = tag.get("decimals")
-
-        if decimals_value is None:
-            print(f'警告: decimals属性が見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = int(decimals_value)
-        exchange_ratio = 10 ** (-8 - decimals_value)
-        netsales = tag.text
-
-        if netsales is None or netsales.strip() == "":
-            print(f'警告: 売上高の値が空です。ファイル: {file_name}')
-            return None
-
-        netsales = int(netsales.replace(",", ""))  # カンマを削除
-        netsales = round(netsales * exchange_ratio, 1)  # 金額を億円単位に換算
-        return netsales
-
+        result = _safe_get_value(tag)
+        if result is None:
+            print(f'警告: NetSalesを取得できませんでした - {file_name}')
+        return result
     except Exception as e:
-        print(f'エラー: NetSales取得失敗 - {e}, ファイル: {xbrl_path}')
+        print(f'エラー: NetSales取得失敗 - {xbrl_path}: {e}')
         return None
 
 
@@ -61,47 +80,16 @@ def get_SellingGeneralAndAdministrativeExpenses(xbrl_path):
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        if 'ac' in file_name:
-            contextref = "CurrentYearDuration"
-        elif 'qcpl23' in file_name:
-            contextref = "CurrentQuarterDuration"
-        elif 'qcpl11' in file_name:
-            contextref = "CurrentYTDDuration"
-        elif 'an' in file_name:
-            contextref = "CurrentYearDuration_NonConsolidatedMember"
-        elif 'qn' in file_name:
-            contextref = "CurrentQuarterDuration_NonConsolidatedMember"
-        else:
-            print(f'警告: 未知のファイル名パターン: {file_name}')
-            return None
-
+        contextref = _get_contextref(file_name)
         tag = soup.find("ix:nonfraction",
                         attrs={"contextref": contextref, "name": "jppfs_cor:SellingGeneralAndAdministrativeExpenses"})
 
-        if tag is None:
-            print(f'警告: SellingGeneralAndAdministrativeExpensesを取得できませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = tag.get("decimals")
-
-        if decimals_value is None:
-            print(f'警告: decimals属性が見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = int(decimals_value)
-        exchange_ratio = 10 ** (-8 - decimals_value)
-        sellingGeneralandadministrativeexpenses = tag.text
-
-        if sellingGeneralandadministrativeexpenses is None or sellingGeneralandadministrativeexpenses.strip() == "":
-            print(f'警告: 販管費の値が空です。ファイル: {file_name}')
-            return None
-
-        sellingGeneralandadministrativeexpenses = int(sellingGeneralandadministrativeexpenses.replace(",", ""))
-        sellingGeneralandadministrativeexpenses = round(sellingGeneralandadministrativeexpenses * exchange_ratio, 1)
-        return sellingGeneralandadministrativeexpenses
-
+        result = _safe_get_value(tag)
+        if result is None:
+            print(f'警告: SellingGeneralAndAdministrativeExpensesを取得できませんでした - {file_name}')
+        return result
     except Exception as e:
-        print(f'エラー: SellingGeneralAndAdministrativeExpenses取得失敗 - {e}, ファイル: {xbrl_path}')
+        print(f'エラー: SellingGeneralAndAdministrativeExpenses取得失敗 - {xbrl_path}: {e}')
         return None
 
 
@@ -113,46 +101,15 @@ def get_OperatingIncome(xbrl_path):
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        if 'ac' in file_name:
-            contextref = "CurrentYearDuration"
-        elif 'qcpl23' in file_name:
-            contextref = "CurrentQuarterDuration"
-        elif 'qcpl11' in file_name:
-            contextref = "CurrentYTDDuration"
-        elif 'an' in file_name:
-            contextref = "CurrentYearDuration_NonConsolidatedMember"
-        elif 'qn' in file_name:
-            contextref = "CurrentQuarterDuration_NonConsolidatedMember"
-        else:
-            print(f'警告: 未知のファイル名パターン: {file_name}')
-            return None
-
+        contextref = _get_contextref(file_name)
         tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jppfs_cor:OperatingIncome"})
 
-        if tag is None:
-            print(f'警告: OperatingIncomeタグが見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = tag.get("decimals")
-
-        if decimals_value is None:
-            print(f'警告: decimals属性が見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = int(decimals_value)
-        exchange_ratio = 10 ** (-8 - decimals_value)
-        operatingincome = tag.text
-
-        if operatingincome is None or operatingincome.strip() == "":
-            print(f'警告: 営業利益の値が空です。ファイル: {file_name}')
-            return None
-
-        operatingincome = int(operatingincome.replace(",", ""))
-        operatingincome = round(operatingincome * exchange_ratio, 1)
-        return operatingincome
-
+        result = _safe_get_value(tag)
+        if result is None:
+            print(f'警告: OperatingIncomeを取得できませんでした - {file_name}')
+        return result
     except Exception as e:
-        print(f'エラー: OperatingIncome取得失敗 - {e}, ファイル: {xbrl_path}')
+        print(f'エラー: OperatingIncome取得失敗 - {xbrl_path}: {e}')
         return None
 
 
@@ -164,46 +121,15 @@ def get_OrdinaryIncome(xbrl_path):
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        if 'ac' in file_name:
-            contextref = "CurrentYearDuration"
-        elif 'qcpl23' in file_name:
-            contextref = "CurrentQuarterDuration"
-        elif 'qcpl11' in file_name:
-            contextref = "CurrentYTDDuration"
-        elif 'an' in file_name:
-            contextref = "CurrentYearDuration_NonConsolidatedMember"
-        elif 'qn' in file_name:
-            contextref = "CurrentQuarterDuration_NonConsolidatedMember"
-        else:
-            print(f'警告: 未知のファイル名パターン: {file_name}')
-            return None
-
+        contextref = _get_contextref(file_name)
         tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jppfs_cor:OrdinaryIncome"})
 
-        if tag is None:
-            print(f'警告: OrdinaryIncomeタグが見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = tag.get("decimals")
-
-        if decimals_value is None:
-            print(f'警告: decimals属性が見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = int(decimals_value)
-        exchange_ratio = 10 ** (-8 - decimals_value)
-        ordinaryincome = tag.text
-
-        if ordinaryincome is None or ordinaryincome.strip() == "":
-            print(f'警告: 経常利益の値が空です。ファイル: {file_name}')
-            return None
-
-        ordinaryincome = int(ordinaryincome.replace(",", ""))
-        ordinaryincome = round(ordinaryincome * exchange_ratio, 1)
-        return ordinaryincome
-
+        result = _safe_get_value(tag)
+        if result is None:
+            print(f'警告: OrdinaryIncomeを取得できませんでした - {file_name}')
+        return result
     except Exception as e:
-        print(f'エラー: OrdinaryIncome取得失敗 - {e}, ファイル: {xbrl_path}')
+        print(f'エラー: OrdinaryIncome取得失敗 - {xbrl_path}: {e}')
         return None
 
 
@@ -215,60 +141,30 @@ def get_NetIncome(xbrl_path):
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        if 'ac' in file_name:
-            contextref = "CurrentYearDuration"
-        elif 'qcpl23' in file_name:
-            contextref = "CurrentQuarterDuration"
-        elif 'qcpl11' in file_name:
-            contextref = "CurrentYTDDuration"
-        elif 'an' in file_name:
-            contextref = "CurrentYearDuration_NonConsolidatedMember"
-        elif 'qn' in file_name:
-            contextref = "CurrentQuarterDuration_NonConsolidatedMember"
-        else:
-            print(f'警告: 未知のファイル名パターン: {file_name}')
-            return None
+        contextref = _get_contextref(file_name)
 
+        # NetIncomeを探す
         tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jppfs_cor:NetIncome"})
 
+        # NetIncomeが見つからない場合はProfitLossを試す
         if tag is None:
             tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jppfs_cor:ProfitLoss"})
 
-            if tag is None:
-                print(f'警告: NetIncome/ProfitLossタグが見つかりませんでした。ファイル: {file_name}')
-                return None
-
-        decimals_value = tag.get("decimals")
-
-        if decimals_value is None:
-            print(f'警告: decimals属性が見つかりませんでした。ファイル: {file_name}')
-            return None
-
-        decimals_value = int(decimals_value)
-        exchange_ratio = 10 ** (-8 - decimals_value)
-        netincome = tag.text
-
-        if netincome is None or netincome.strip() == "":
-            print(f'警告: 純利益の値が空です。ファイル: {file_name}')
-            return None
-
-        netincome = int(netincome.replace(",", ""))
-        netincome = round(netincome * exchange_ratio, 1)
-        return netincome
-
+        result = _safe_get_value(tag)
+        if result is None:
+            print(f'警告: NetIncome/ProfitLossを取得できませんでした - {file_name}')
+        return result
     except Exception as e:
-        print(f'エラー: NetIncome取得失敗 - {e}, ファイル: {xbrl_path}')
+        print(f'エラー: NetIncome取得失敗 - {xbrl_path}: {e}')
         return None
 
 
 if __name__ == '__main__':
-    # xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\3679\0301000-acpl01-tse-acedjpfr-36790-2015-03-31-01-2015-05-15-ixbrl.htm"
-    # xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\3679\0301000-acpl01-tse-acedjpfr-36790-2015-03-31-01-2015-05-15-ixbrl.htm"
-    # xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\3679\0600000-qcpl11-tse-qcedjpfr-36790-2014-06-30-01-2014-08-12-ixbrl.htm"
-    # xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\3679\0600000-qcpl11-tse-qcedjpfr-36790-2014-06-30-01-2014-08-12-ixbrl.htm"
+    # テスト用
     xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\7172\0102010-acpl01-tse-acedjpfr-71720-2014-12-31-01-2015-02-12-ixbrl.htm"
 
     print(f'売上: {get_NetSales(xbrl_path)}')
     print(f'販管費: {get_SellingGeneralAndAdministrativeExpenses(xbrl_path)}')
     print(f'営業利益: {get_OperatingIncome(xbrl_path)}')
+    print(f'経常利益: {get_OrdinaryIncome(xbrl_path)}')
     print(f'純利益: {get_NetIncome(xbrl_path)}')
