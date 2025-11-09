@@ -25,7 +25,8 @@
         .metric-button {padding:12px;font-size:14px;background:#e0e0e0;color:#333;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:all .3s;}
         .metric-button:hover {background:#d0d0d0;}
         .metric-button.active {background:#2196F3;color:#fff;border-color:#1976D2;}
-        .chart-container {background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);height:350px;margin-bottom:20px;position:relative;}
+        /* 高さを低く */
+        .chart-container {background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);height:250px;margin-bottom:20px;position:relative;}
         .stock-checkbox {background:#fff3e0;padding:12px;border-radius:8px;margin-top:15px;border-left:4px solid #ff9800;}
         .stock-checkbox label {display:inline;color:#e65100;cursor:pointer;}
         #loading {text-align:center;padding:40px;color:#666;}
@@ -38,7 +39,7 @@
 
     <div class="info-box">
         <p><strong>リアルデータ連携中！</strong></p>
-        <p>SQLite + Yahoo Finance から取得。チェックボックスで株価を重ねて表示。</p>
+        <p>日付に年を表示・グラフ高さ250px・株価は線のみ</p>
     </div>
 
     <div class="controls">
@@ -103,7 +104,6 @@
 
         let bsChart = null, plChart = null;
 
-        // 会社リスト取得
         async function loadCompanies() {
             const select = document.getElementById('companySelect');
             const loading = document.getElementById('loading');
@@ -137,7 +137,6 @@
             }
         }
 
-        // タブ切り替え
         function switchTab(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -145,7 +144,6 @@
             document.getElementById(`${tab}-content`).classList.add('active');
         }
 
-        // 全データ取得
         async function loadAllData(code, name) {
             document.getElementById('mainTabs').style.display = 'flex';
             document.getElementById('loading').style.display = 'block';
@@ -170,7 +168,6 @@
             }
         }
 
-        // チャート描画
         function renderChart(type, data, stock) {
             const ctx = document.getElementById(`${type}Chart`).getContext('2d');
             const buttons = document.querySelectorAll(`#${type}Metrics .metric-button`);
@@ -186,19 +183,16 @@
             checkbox.onchange = drawChart;
 
             function drawChart() {
-                // チャート破棄
                 if (type === 'bs' && bsChart) { bsChart.destroy(); bsChart = null; }
                 if (type === 'pl' && plChart) { plChart.destroy(); plChart = null; }
 
-                // 株価の日付を基準
                 const labels = stock.length ? stock.map(s => s.date) : data.map(d => d.term + '-01');
                 const label = metricNames[activeMetric];
 
-                // BS/PLの値を年月でマッチ
                 const map = {};
                 data.forEach(d => { map[d.term] = d[activeMetric]; });
                 const values = labels.map(date => {
-                    const ym = date.substring(0, 7); // YYYY-MM
+                    const ym = date.substring(0, 7);
                     return map[ym] ?? null;
                 });
 
@@ -208,7 +202,8 @@
                     borderColor: '#2196F3',
                     backgroundColor: 'rgba(33,150,243,0.2)',
                     yAxisID: 'y',
-                    spanGaps: true
+                    spanGaps: true,
+                    fill: true
                 }];
 
                 if (checkbox.checked && stock.length) {
@@ -216,9 +211,12 @@
                         label: '株価（円）',
                         data: stock.map(s => s.price),
                         borderColor: '#FF9800',
-                        backgroundColor: 'rgba(255,152,0,0.2)',
+                        backgroundColor: 'transparent',  // 線だけ
                         yAxisID: 'y1',
-                        spanGaps: true
+                        spanGaps: true,
+                        fill: false,  // 塗りつぶしなし
+                        pointRadius: 0,  // 点なし
+                        borderWidth: 2
                     });
                 }
 
@@ -230,7 +228,14 @@
                         interaction: { mode: 'index', intersect: false },
                         plugins: { legend: { position: 'top' } },
                         scales: {
-                            x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day',
+                                    displayFormats: { day: 'yyyy/MM/dd' }  // 年付き
+                                },
+                                title: { display: true, text: '日付' }
+                            },
                             y: { position: 'left', title: { display: true, text: '金額 (百万円)' } },
                             y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
                         }
@@ -243,7 +248,6 @@
             drawChart();
         }
 
-        // コードで検索
         async function searchByCode() {
             const code = document.getElementById('codeInput').value.trim();
             if (!code) return alert('証券コードを入力してください');
@@ -259,7 +263,6 @@
             }
         }
 
-        // 起動
         window.addEventListener('DOMContentLoaded', loadCompanies);
     </script>
 </body>
