@@ -9,7 +9,7 @@ import xbrl_pl_japan_gaap_parser
 from pl_filename_parser import PlFilenameParser
 import os
 from datetime import datetime
-from lxml import etree
+import re
 
 
 class PlDBInserter:
@@ -33,7 +33,7 @@ class PlDBInserter:
 
     def extract_period_info(self):
         """
-        XBRLファイルから期間情報を抽出し、四半期と年度を判定
+        ファイル名から期間情報を抽出し、四半期と年度を判定
 
         Returns:
         --------
@@ -42,68 +42,43 @@ class PlDBInserter:
             fiscal_year: 年度（整数） or None
         """
         try:
-            # XBRLファイルをパース
-            tree = etree.parse(self.pl_file_path)
-            root = tree.getroot()
+            filename = self.file_name.lower()
 
-            # 名前空間を取得
-            namespaces = root.nsmap
-
-            # context要素を探索
-            contexts = root.findall('.//xbrli:context', namespaces) if 'xbrli' in namespaces else root.findall('.//{http://www.xbrl.org/2003/instance}context')
-
-            start_date = None
-            end_date = None
-
-            # 各contextから期間情報を取得
-            for context in contexts:
-                # instantの場合はスキップ（期間ではなく時点情報）
-                instant = context.find('.//{http://www.xbrl.org/2003/instance}instant')
-                if instant is not None:
-                    continue
-
-                # period要素から開始日と終了日を取得
-                period = context.find('.//{http://www.xbrl.org/2003/instance}period')
-                if period is not None:
-                    start = period.find('.//{http://www.xbrl.org/2003/instance}startDate')
-                    end = period.find('.//{http://www.xbrl.org/2003/instance}endDate')
-
-                    if start is not None and end is not None:
-                        start_date = datetime.strptime(start.text, '%Y-%m-%d')
-                        end_date = datetime.strptime(end.text, '%Y-%m-%d')
-
-                        # 最も長い期間を採用（通常、CurrentYearDuration等）
-                        if start_date and end_date:
-                            break
-
-            if start_date is None or end_date is None:
-                print(f'警告: 期間情報を取得できませんでした - {self.file_name}')
+            # ファイル名から終了日を取得 (例: 2024-09-30)
+            date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', filename)
+            if date_match:
+                year = int(date_match.group(1))
+                month = int(date_match.group(2))
+                day = int(date_match.group(3))
+                end_date = datetime(year, month, day)
+                fiscal_year = end_date.year
+            else:
+                print(f'警告: ファイル名から日付を取得できませんでした - {self.file_name}')
                 return None, None
 
-            # 期間の長さを計算（月数）
-            delta_days = (end_date - start_date).days
-            delta_months = delta_days / 30.44  # 平均月日数
-
-            # 年度を取得（終了日の年）
-            fiscal_year = end_date.year
-
-            # 四半期を判定
+            # ファイル名から期間タイプを判定
             period = None
-            if 2.5 <= delta_months <= 4:  # 約3ヶ月
-                period = 'Q1'
-            elif 5.5 <= delta_months <= 7:  # 約6ヶ月
+
+            # qcpl = 四半期、scpl = 半期、acpl = 年次
+            if 'qcpl11' in filename or 'qcpl1' in filename:  # 第1四半期
+                # qcpl11とqcpl1を区別（qcpl11が先）
+                if 'qcpl11' in filename:
+                    period = 'Q1'
+                elif 'qcpl1' in filename and 'qcpl11' not in filename:
+                    period = 'Q1'
+            elif 'scpl' in filename or 'qcpl2' in filename:  # 半期/第2四半期
                 period = 'Q2'
-            elif 8.5 <= delta_months <= 10:  # 約9ヶ月
+            elif 'qcpl3' in filename:  # 第3四半期
                 period = 'Q3'
-            elif 11 <= delta_months <= 13:  # 約12ヶ月
+            elif 'acpl' in filename or 'qcpl4' in filename:  # 年次/第4四半期
                 period = 'Q4'
+
+            if period:
+                print(f'期間情報: {period}, 年度: {fiscal_year} (ファイル名: {self.file_name})')
+                return period, fiscal_year
             else:
-                print(f'警告: 期間が想定外です - {delta_months:.1f}ヶ月 ({self.file_name})')
-                period = None
-
-            print(f'期間情報: {start_date.date()} ~ {end_date.date()} ({delta_months:.1f}ヶ月) → {period}, 年度: {fiscal_year}')
-
-            return period, fiscal_year
+                print(f'警告: ファイル名から期間タイプを判定できませんでした - {self.file_name}')
+                return None, fiscal_year
 
         except Exception as e:
             print(f'期間情報抽出エラー: {e}')
@@ -218,7 +193,8 @@ class PlDBInserter:
 if __name__ == '__main__':
     # テスト用ファイルパス（環境に合わせて変更してください）
     test_files = [
-        r'E:\Zip_files\3679\0301000-acpl01-tse-acedjpfr-36790-2016-03-31-01-2016-05-13-ixbrl.htm'
+        r'C:\Users\Shimizu\PycharmProjects\TDnet_XBRL_ver01\TDnet_XBRL\zip_files\9504\0301000-acpl01-tse-acedjpfr-95040-2015-03-31-01-2015-05-13-ixbrl.htm',
+        r'E:\Zip_files\9504\0600000-qcpl11-tse-qcedjpfr-95040-2014-06-30-01-2014-08-12-ixbrl.htm'
     ]
 
     for pl_file_path in test_files:
