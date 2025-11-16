@@ -61,7 +61,7 @@ def convert_to_quarterly_from_period(data):
         if quarter is None:
             continue
 
-        # 数値に変換
+        # 数値に変換（元データの累計値を保持）
         parsed_item = {
             'original': item,
             'fiscalYear': fiscal_year,
@@ -86,7 +86,7 @@ def convert_to_quarterly_from_period(data):
             current = year_data[quarter]
             out = dict(current['original'])
 
-            # Q1はそのまま、Q2以降は差分計算
+            # Q1はそのまま、Q2以降は差分計算（元データの累計値を使用）
             if quarter == 1:
                 # Q1はそのまま使用
                 for m in metrics:
@@ -96,14 +96,14 @@ def convert_to_quarterly_from_period(data):
                     else:
                         out[m] = val
             else:
-                # Q2, Q3, Q4は前のクオーターとの差分
+                # Q2, Q3, Q4は前のクオーターとの差分（元データ同士で計算）
                 prev_quarter = quarter - 1
 
                 if prev_quarter in year_data:
                     previous = year_data[prev_quarter]
                     for m in metrics:
-                        cur = current.get(m)
-                        prev = previous.get(m)
+                        cur = current.get(m)  # 元データの累計値
+                        prev = previous.get(m)  # 元データの累計値
 
                         if cur is None or prev is None:
                             out[m] = None

@@ -30,7 +30,7 @@ from pl_db_inserter import PlDBInserter
 
 
 # 企業コード設定
-codes = [5233]
+codes = [6062]
 #codes = csv_reader.read_csv('../config/code_list.csv') # ★企業コードはここで設定
 
 # ダウンロードフォルダのパス（自動的にユーザーのDownloadsフォルダを取得）
@@ -54,7 +54,7 @@ for code in codes:
 
     # 東証上場会社情報サービスからZipファイルをダウンロードする
     print(f'{code}のダウンロード')
-    #zipfile_downloader.zip_download(code)  # ここに時間がかかる。
+    zipfile_downloader.zip_download(code)  # ここに時間がかかる。
 
     # code毎にzipファイルを保管するためのフォルダを作成する
     print(f'{code}のフォルダを作成')
