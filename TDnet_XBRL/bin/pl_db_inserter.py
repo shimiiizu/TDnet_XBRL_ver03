@@ -9,7 +9,7 @@ import xbrl_pl_japan_gaap_parser
 from pl_filename_parser import PlFilenameParser
 import os
 from datetime import datetime
-import re
+from lxml import etree
 
 
 class PlDBInserter:
@@ -33,7 +33,7 @@ class PlDBInserter:
 
     def extract_period_info(self):
         """
-        ファイル名から期間情報を抽出し、四半期と年度を判定
+        XBRLファイルのタグから期間情報を抽出し、四半期と年度を判定
 
         Returns:
         --------
@@ -42,46 +42,60 @@ class PlDBInserter:
             fiscal_year: 年度（整数） or None
         """
         try:
-            filename = self.file_name.lower()
+            # XBRLファイルをパース
+            tree = etree.parse(self.pl_file_path)
+            root = tree.getroot()
 
-            # ファイル名から終了日を取得 (例: 2024-09-30)
-            date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', filename)
-            if date_match:
-                year = int(date_match.group(1))
-                month = int(date_match.group(2))
-                day = int(date_match.group(3))
-                end_date = datetime(year, month, day)
-                fiscal_year = end_date.year
-            else:
-                print(f'警告: ファイル名から日付を取得できませんでした - {self.file_name}')
+            # 名前空間を取得
+            namespaces = root.nsmap
+
+            # jpcrp_cor:DocumentPeriodEndDate を取得
+            end_date = None
+            end_date_elements = root.findall('.//jpcrp_cor:DocumentPeriodEndDate', namespaces)
+
+            if end_date_elements:
+                for elem in end_date_elements:
+                    if elem.text:
+                        try:
+                            end_date = datetime.strptime(elem.text, '%Y-%m-%d')
+                            break
+                        except ValueError:
+                            continue
+
+            if not end_date:
+                print(f'警告: DocumentPeriodEndDateを取得できませんでした - {self.file_name}')
                 return None, None
 
-            # ファイル名から期間タイプを判定
+            # 年度を取得（終了日の年）
+            fiscal_year = end_date.year
+
+            # 月からクオーターを判定（4月始まりの会計年度を想定）
+            month = end_date.month
+
             period = None
-
-            # qcpl = 四半期、scpl = 半期、acpl = 年次
-            if 'qcpl11' in filename or 'qcpl1' in filename:  # 第1四半期
-                # qcpl11とqcpl1を区別（qcpl11が先）
-                if 'qcpl11' in filename:
-                    period = 'Q1'
-                elif 'qcpl1' in filename and 'qcpl11' not in filename:
-                    period = 'Q1'
-            elif 'scpl' in filename or 'qcpl2' in filename:  # 半期/第2四半期
+            if month == 6:  # 6月末 → Q1（4月〜6月）
+                period = 'Q1'
+            elif month == 9:  # 9月末 → Q2（4月〜9月、半期）
                 period = 'Q2'
-            elif 'qcpl3' in filename:  # 第3四半期
+            elif month == 12:  # 12月末 → Q3（4月〜12月）
                 period = 'Q3'
-            elif 'acpl' in filename or 'qcpl4' in filename:  # 年次/第4四半期
+            elif month == 3:  # 3月末 → Q4（4月〜3月、通期）
                 period = 'Q4'
-
-            if period:
-                print(f'期間情報: {period}, 年度: {fiscal_year} (ファイル名: {self.file_name})')
-                return period, fiscal_year
             else:
-                print(f'警告: ファイル名から期間タイプを判定できませんでした - {self.file_name}')
-                return None, fiscal_year
+                # 4月始まり以外の会計年度の場合の判定
+                # 終了月から推測
+                print(f'警告: 標準的でない会計期間です（終了月: {month}月） - {self.file_name}')
+                # 一旦Noneとして処理
+                period = None
+
+            print(f'期間情報: 終了日={end_date.date()}, {period}, 年度: {fiscal_year}')
+
+            return period, fiscal_year
 
         except Exception as e:
             print(f'期間情報抽出エラー: {e}')
+            import traceback
+            traceback.print_exc()
             print(f'ファイル: {self.pl_file_path}')
             return None, None
 
@@ -104,7 +118,7 @@ class PlDBInserter:
                 CREATE TABLE IF NOT EXISTS PL (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     Code TEXT,
-                    FileName TEXT UNIQUE,
+                    FileName TEXT,
                     PublicDay TEXT,
                     Period TEXT,
                     FiscalYear INTEGER,
@@ -122,54 +136,46 @@ class PlDBInserter:
                 )
             ''')
 
-            # ファイル名が既に登録されているかチェック
-            cursor.execute('SELECT COUNT(*) FROM PL WHERE FileName = ?', (filename,))
+            # IFRSの場合
+            first_string = 'iffr'
+            second_string = 'pl'
+            if first_string in self.file_name and second_string in self.file_name:
+                print(f'IFRS形式のPLファイルを処理中: {filename}')
 
-            if cursor.fetchone()[0] == 0:  # ファイルの情報がない場合にDBに挿入
+                revenueifrs = xbrl_pl_ifrs_parser.get_RevenueIFRS(self.pl_file_path)
+                sellinggeneralandadministrativeexpensesifrs = xbrl_pl_ifrs_parser.get_SellingGeneralAndAdministrativeExpensesIFRS(self.pl_file_path)
+                operatingprofitlossifrs = xbrl_pl_ifrs_parser.get_OperatingProfitLossIFRS(self.pl_file_path)
+                profitLossifrs = xbrl_pl_ifrs_parser.get_ProfitLossIFRS(self.pl_file_path)
+                dilutedearningslosspershareifrs = xbrl_pl_ifrs_parser.get_DilutedEarningsLossPerShareIFRS(self.pl_file_path)
 
-                # IFRSの場合
-                first_string = 'iffr'
-                second_string = 'pl'
-                if first_string in self.file_name and second_string in self.file_name:
-                    print(f'IFRS形式のPLファイルを処理中: {filename}')
+                cursor.execute('''INSERT INTO PL 
+                        (Code,FileName,PublicDay,Period,FiscalYear,RevenueIFRS,SellingGeneralAndAdministrativeExpensesIFRS,OperatingProfitLossIFRS,ProfitLossIFRS,DilutedEarningsLossPerShareIFRS)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                               (code, filename, publicday, period, fiscal_year, revenueifrs, sellinggeneralandadministrativeexpensesifrs,
+                                operatingprofitlossifrs, profitLossifrs, dilutedearningslosspershareifrs))
 
-                    revenueifrs = xbrl_pl_ifrs_parser.get_RevenueIFRS(self.pl_file_path)
-                    sellinggeneralandadministrativeexpensesifrs = xbrl_pl_ifrs_parser.get_SellingGeneralAndAdministrativeExpensesIFRS(self.pl_file_path)
-                    operatingprofitlossifrs = xbrl_pl_ifrs_parser.get_OperatingProfitLossIFRS(self.pl_file_path)
-                    profitLossifrs = xbrl_pl_ifrs_parser.get_ProfitLossIFRS(self.pl_file_path)
-                    dilutedearningslosspershareifrs = xbrl_pl_ifrs_parser.get_DilutedEarningsLossPerShareIFRS(self.pl_file_path)
+                print(f'✓ IFRS PLデータを挿入: {code} - {publicday} - {period} ({fiscal_year}年度)')
 
-                    cursor.execute('''INSERT INTO PL 
-                            (Code,FileName,PublicDay,Period,FiscalYear,RevenueIFRS,SellingGeneralAndAdministrativeExpensesIFRS,OperatingProfitLossIFRS,ProfitLossIFRS,DilutedEarningsLossPerShareIFRS)
-                            VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                                   (code, filename, publicday, period, fiscal_year, revenueifrs, sellinggeneralandadministrativeexpensesifrs,
-                                    operatingprofitlossifrs, profitLossifrs, dilutedearningslosspershareifrs))
+            # 日本GAAPの場合
+            first_string = 'jpfr'
+            second_string = 'pl'
+            if first_string in self.file_name and second_string in self.file_name:
+                print(f'日本GAAP形式のPLファイルを処理中: {filename}')
 
-                    print(f'✓ IFRS PLデータを挿入: {code} - {publicday} - {period} ({fiscal_year}年度)')
+                netsales = xbrl_pl_japan_gaap_parser.get_NetSales(self.pl_file_path)
+                sellinggeneralandadministrativeexpenses = xbrl_pl_japan_gaap_parser.get_SellingGeneralAndAdministrativeExpenses(self.pl_file_path)
+                operatingincome = xbrl_pl_japan_gaap_parser.get_OperatingIncome(self.pl_file_path)
+                ordinaryincome = xbrl_pl_japan_gaap_parser.get_OrdinaryIncome(self.pl_file_path)
+                netincome = xbrl_pl_japan_gaap_parser.get_NetIncome(self.pl_file_path)
 
-                # 日本GAAPの場合
-                first_string = 'jpfr'
-                second_string = 'pl'
-                if first_string in self.file_name and second_string in self.file_name:
-                    print(f'日本GAAP形式のPLファイルを処理中: {filename}')
+                cursor.execute('''INSERT INTO PL 
+                                        (Code,FileName,PublicDay,Period,FiscalYear,NetSales,SellingGeneralAndAdministrativeExpenses,OperatingIncome,OrdinaryIncome,NetIncome)
+                                        VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                               (code, filename, publicday, period, fiscal_year, netsales, sellinggeneralandadministrativeexpenses,
+                                operatingincome, ordinaryincome, netincome))
 
-                    netsales = xbrl_pl_japan_gaap_parser.get_NetSales(self.pl_file_path)
-                    sellinggeneralandadministrativeexpenses = xbrl_pl_japan_gaap_parser.get_SellingGeneralAndAdministrativeExpenses(self.pl_file_path)
-                    operatingincome = xbrl_pl_japan_gaap_parser.get_OperatingIncome(self.pl_file_path)
-                    ordinaryincome = xbrl_pl_japan_gaap_parser.get_OrdinaryIncome(self.pl_file_path)
-                    netincome = xbrl_pl_japan_gaap_parser.get_NetIncome(self.pl_file_path)
-
-                    cursor.execute('''INSERT INTO PL 
-                                            (Code,FileName,PublicDay,Period,FiscalYear,NetSales,SellingGeneralAndAdministrativeExpenses,OperatingIncome,OrdinaryIncome,NetIncome)
-                                            VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                                   (code, filename, publicday, period, fiscal_year, netsales, sellinggeneralandadministrativeexpenses,
-                                    operatingincome, ordinaryincome, netincome))
-
-                    print(f'✓ 日本GAAP PLデータを挿入: {code} - {publicday} - {period} ({fiscal_year}年度)')
-                    print(f'  売上: {netsales}, 営業利益: {operatingincome}, 純利益: {netincome}')
-
-            else:
-                print(f'すでに{filename}は登録されています。')
+                print(f'✓ 日本GAAP PLデータを挿入: {code} - {publicday} - {period} ({fiscal_year}年度)')
+                print(f'  売上: {netsales}, 営業利益: {operatingincome}, 純利益: {netincome}')
 
             conn.commit()
 
