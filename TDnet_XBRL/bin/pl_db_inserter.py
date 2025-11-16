@@ -1,8 +1,3 @@
-"""
-データベースにPLデータを保管する
-
-"""
-
 import sqlite3
 import xbrl_pl_ifrs_parser
 import xbrl_pl_japan_gaap_parser
@@ -10,121 +5,121 @@ from pl_filename_parser import PlFilenameParser
 import os
 from datetime import datetime
 from lxml import etree
+import re
 
 
 class PlDBInserter:
 
     def __init__(self, pl_file_path):
-        self.pl_file_path = pl_file_path  # 通期のPLファイルのリスト
+        self.pl_file_path = pl_file_path
         self.file_name = os.path.basename(pl_file_path)
 
-        # データベースパスを動的に設定（プロジェクトルートからの相対パス）
-        # 現在のスクリプトの場所から相対的にDBパスを設定
+        # 企業コードをファイル名から取得
+        parser = PlFilenameParser(pl_file_path)
+        self.company_code = parser.get_code()  # 追加！
+
+        # データベースパス
         current_dir = os.path.dirname(os.path.abspath(__file__))
         db_dir = os.path.join(current_dir, '..', 'db')
-
-        # dbフォルダが存在しない場合は作成
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
             print(f'データベースディレクトリを作成しました: {db_dir}')
-
         self.DB = os.path.join(db_dir, 'PL_DB.db')
         print(f'データベースパス: {self.DB}')
 
-    def extract_period_info(self):
-        """
-        XBRLファイルのタグから期間情報を抽出し、四半期と年度を判定
+    # =============================
+    # 補助関数：名前空間エスケープ
+    # =============================
+    def _escape_ns(self, ns_url):  # self 追加！
+        """lxml用に名前空間をエスケープ"""
+        return ns_url.replace('http://', 'http/').replace('/', '_')
 
-        Returns:
-        --------
-        tuple: (period, fiscal_year, period_end_date)
-            period: 'Q1', 'Q2', 'Q3', 'Q4' or None
-            fiscal_year: 年度（整数） or None
-            period_end_date: datetime.date or None
-        """
+    # =============================
+    # 補助関数：会計年度開始月
+    # =============================
+    def get_fiscal_start_month(self):
+        fiscal_end_month_map = {
+            '1301': 3,   # 極洋
+            '7203': 3,   # トヨタ
+            '9984': 3,   # ソフトバンク
+            '9501': 3,   # 東京電力
+            '9432': 9,   # NTT
+        }
+        end_month = fiscal_end_month_map.get(self.company_code, 3)
+        return (end_month % 12) + 1  # 3月決算 → 4月開始
+
+    # =============================
+    # 期間情報抽出（修正済み）
+    # =============================
+    def extract_period_info(self):
         try:
-            # ファイル読み込み
             tree = etree.parse(self.pl_file_path)
             root = tree.getroot()
             namespaces = root.nsmap
 
-            # --- 1. 期間終了日を XBRL コンテキストから取得 ---
             period_end_date = None
 
-            # コンテキストをすべて取得
-            context_elements = root.findall('.//{http://www.xbrl.org/2003/instance}context')
-            for ctx in context_elements:
+            # --- 1. コンテキストから instant / endDate ---
+            for ctx in root.findall('.//{http://www.xbrl.org/2003/instance}context'):
                 ctx_id = ctx.get('id', '')
-
-                # 四半期・通期を示すコンテキストを優先
-                if re.search(r'CurrentQuarterInstant|CurrentYTDEnd|CurrentQuarterEnd|PriorQuarterInstant|Instant',
-                             ctx_id, re.I):
-                    # <instant>2023-12-31</instant>
+                if re.search(r'CurrentQuarterInstant|CurrentYTDEnd|CurrentQuarterEnd|Instant', ctx_id, re.I):
                     instant = ctx.find('.//{http://www.xbrl.org/2003/instance}instant')
-                    if instant is not None and instant.text and re.match(r'\d{4}-\d{2}-\d{2}', instant.text):
+                    if instant is not None and instant.text and re.match(r'\d{4}-\d{2}-\d{2}', instant.text.strip()):
                         period_end_date = datetime.strptime(instant.text.strip(), '%Y-%m-%d').date()
                         break
-
-                    # <endDate>2023-12-31</endDate>
-                    end_date_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
-                    if end_date_tag is not None and end_date_tag.text and re.match(r'\d{4}-\d{2}-\d{2}',
-                                                                                   end_date_tag.text):
-                        period_end_date = datetime.strptime(end_date_tag.text.strip(), '%Y-%m-%d').date()
+                    end_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
+                    if end_tag is not None and end_tag.text and re.match(r'\d{4}-\d{2}-\d{2}', end_tag.text.strip()):
+                        period_end_date = datetime.strptime(end_tag.text.strip(), '%Y-%m-%d').date()
                         break
 
-            # --- 2. フォールバック：DocumentPeriodEndDate（年次報告書用）---
+            # --- 2. DocumentPeriodEndDate ---
             if period_end_date is None:
-                # 名前空間動的対応
-                for ns_key in namespaces:
-                    if 'jpcrp' in namespaces[ns_key]:
-                        tag_name = f'{{{_escape_ns(namespaces[ns_key])}}}DocumentPeriodEndDate'
+                for ns_key, ns_url in namespaces.items():
+                    if 'jpcrp' in ns_url.lower():
+                        tag_name = f'{{{{{self._escape_ns(ns_url)}}}}}DocumentPeriodEndDate'  # self. 追加！
                         elem = root.find(f'.//{tag_name}')
-                        if elem is not None and elem.text and re.match(r'\d{4}-\d{2}-\d{2}', elem.text):
+                        if elem is not None and elem.text and re.match(r'\d{4}-\d{2}-\d{2}', elem.text.strip()):
                             period_end_date = datetime.strptime(elem.text.strip(), '%Y-%m-%d').date()
                             break
 
-            # --- 3. フォールバック：ファイル名から日付抽出 ---
+            # --- 3. ファイル名から ---
             if period_end_date is None:
-                # 例: 13010-2023-12-31-01-2024-02-02
-                m = re.search(r'(\d{4}-\d{2}-\d{2})', os.path.basename(self.pl_file_path))
+                m = re.search(r'(\d{4}-\d{2}-\d{2})', self.file_name)
                 if m:
                     period_end_date = datetime.strptime(m.group(1), '%Y-%m-%d').date()
-                else:
-                    print(f'警告: 期間終了日を特定できませんでした - {self.file_name}')
-                    return None, None, None
 
-            # --- 4. 会計年度開始月（fiscal_year_start_month）を推定 ---
-            # 企業コードから事前にマッピングがあれば使う（例: 1301 → 4月始まり）
-            fiscal_start_month = self.get_fiscal_start_month()  # 後述
+            if not period_end_date:
+                print(f'警告: 期間終了日を特定できませんでした - {self.file_name}')
+                return None, None, None
 
+            # --- 年度・四半期判定 ---
+            fiscal_start_month = self.get_fiscal_start_month()
             fiscal_year = period_end_date.year
             if period_end_date.month < fiscal_start_month:
-                fiscal_year -= 1  # 例: 3月決算 → 3月末は前年度
+                fiscal_year -= 1
 
-            # --- 5. 四半期判定 ---
-            period = None
-            month_offset = (period_end_date.month - fiscal_start_month + 12) % 12 + 1
-
-            if month_offset <= 3:
+            month_in_fiscal = (period_end_date.month - fiscal_start_month + 12) % 12 + 1
+            if month_in_fiscal <= 3:
                 period = 'Q1'
-            elif month_offset <= 6:
+            elif month_in_fiscal <= 6:
                 period = 'Q2'
-            elif month_offset <= 9:
+            elif month_in_fiscal <= 9:
                 period = 'Q3'
-            elif month_offset <= 12:
+            else:
                 period = 'Q4'
 
             print(f'期間情報: 終了日={period_end_date}, {period}, 年度: {fiscal_year}')
-
             return period, fiscal_year, period_end_date
 
         except Exception as e:
             print(f'期間情報抽出エラー: {e}')
             import traceback
             traceback.print_exc()
-            print(f'ファイル: {self.pl_file_path}')
             return None, None, None
 
+    # =============================
+    # DB挿入
+    # =============================
     def insert_to_pl_db(self):
         try:
             plfilenameparser = PlFilenameParser(self.pl_file_path)
@@ -132,14 +127,15 @@ class PlDBInserter:
             code = plfilenameparser.get_code()
             publicday = plfilenameparser.get_public_day()
 
-            # 期間情報と年度を取得
-            period, fiscal_year = self.extract_period_info()
+            # 期間情報取得（3つ返すが、period, fiscal_year のみ使用）
+            period, fiscal_year, _ = self.extract_period_info()
+            if period is None or fiscal_year is None:
+                print(f'スキップ: 期間情報が取得できませんでした - {filename}')
+                return
 
-            # データベース接続
             conn = sqlite3.connect(self.DB)
             cursor = conn.cursor()
 
-            # テーブルが存在しない場合は作成（Period と FiscalYear カラムを追加）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS PL (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -162,68 +158,61 @@ class PlDBInserter:
                 )
             ''')
 
-            # IFRSの場合
-            first_string = 'iffr'
-            second_string = 'pl'
-            if first_string in self.file_name and second_string in self.file_name:
+            # IFRS
+            if 'iffr' in self.file_name and 'pl' in self.file_name:
                 print(f'IFRS形式のPLファイルを処理中: {filename}')
-
                 revenueifrs = xbrl_pl_ifrs_parser.get_RevenueIFRS(self.pl_file_path)
-                sellinggeneralandadministrativeexpensesifrs = xbrl_pl_ifrs_parser.get_SellingGeneralAndAdministrativeExpensesIFRS(self.pl_file_path)
-                operatingprofitlossifrs = xbrl_pl_ifrs_parser.get_OperatingProfitLossIFRS(self.pl_file_path)
-                profitLossifrs = xbrl_pl_ifrs_parser.get_ProfitLossIFRS(self.pl_file_path)
-                dilutedearningslosspershareifrs = xbrl_pl_ifrs_parser.get_DilutedEarningsLossPerShareIFRS(self.pl_file_path)
+                sga_ifrs = xbrl_pl_ifrs_parser.get_SellingGeneralAndAdministrativeExpensesIFRS(self.pl_file_path)
+                op_ifrs = xbrl_pl_ifrs_parser.get_OperatingProfitLossIFRS(self.pl_file_path)
+                profit_ifrs = xbrl_pl_ifrs_parser.get_ProfitLossIFRS(self.pl_file_path)
+                eps_ifrs = xbrl_pl_ifrs_parser.get_DilutedEarningsLossPerShareIFRS(self.pl_file_path)
 
-                cursor.execute('''INSERT INTO PL 
-                        (Code,FileName,PublicDay,Period,FiscalYear,RevenueIFRS,SellingGeneralAndAdministrativeExpensesIFRS,OperatingProfitLossIFRS,ProfitLossIFRS,DilutedEarningsLossPerShareIFRS)
-                        VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                               (code, filename, publicday, period, fiscal_year, revenueifrs, sellinggeneralandadministrativeexpensesifrs,
-                                operatingprofitlossifrs, profitLossifrs, dilutedearningslosspershareifrs))
+                cursor.execute('''
+                    INSERT INTO PL 
+                    (Code,FileName,PublicDay,Period,FiscalYear,
+                     RevenueIFRS,SellingGeneralAndAdministrativeExpensesIFRS,
+                     OperatingProfitLossIFRS,ProfitLossIFRS,DilutedEarningsLossPerShareIFRS)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)
+                ''', (code, filename, publicday, period, fiscal_year,
+                      revenueifrs, sga_ifrs, op_ifrs, profit_ifrs, eps_ifrs))
 
-                print(f'✓ IFRS PLデータを挿入: {code} - {publicday} - {period} ({fiscal_year}年度)')
+                print(f'IFRS PLデータを挿入: {code} - {period} {fiscal_year}年度')
 
-            # 日本GAAPの場合
-            first_string = 'jpfr'
-            second_string = 'pl'
-            if first_string in self.file_name and second_string in self.file_name:
+            # 日本GAAP
+            elif 'jpfr' in self.file_name and 'pl' in self.file_name:
                 print(f'日本GAAP形式のPLファイルを処理中: {filename}')
-
                 netsales = xbrl_pl_japan_gaap_parser.get_NetSales(self.pl_file_path)
-                sellinggeneralandadministrativeexpenses = xbrl_pl_japan_gaap_parser.get_SellingGeneralAndAdministrativeExpenses(self.pl_file_path)
-                operatingincome = xbrl_pl_japan_gaap_parser.get_OperatingIncome(self.pl_file_path)
-                ordinaryincome = xbrl_pl_japan_gaap_parser.get_OrdinaryIncome(self.pl_file_path)
+                sga = xbrl_pl_japan_gaap_parser.get_SellingGeneralAndAdministrativeExpenses(self.pl_file_path)
+                op = xbrl_pl_japan_gaap_parser.get_OperatingIncome(self.pl_file_path)
+                ordinary = xbrl_pl_japan_gaap_parser.get_OrdinaryIncome(self.pl_file_path)
                 netincome = xbrl_pl_japan_gaap_parser.get_NetIncome(self.pl_file_path)
 
-                cursor.execute('''INSERT INTO PL 
-                                        (Code,FileName,PublicDay,Period,FiscalYear,NetSales,SellingGeneralAndAdministrativeExpenses,OperatingIncome,OrdinaryIncome,NetIncome)
-                                        VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                               (code, filename, publicday, period, fiscal_year, netsales, sellinggeneralandadministrativeexpenses,
-                                operatingincome, ordinaryincome, netincome))
+                cursor.execute('''
+                    INSERT INTO PL 
+                    (Code,FileName,PublicDay,Period,FiscalYear,
+                     NetSales,SellingGeneralAndAdministrativeExpenses,
+                     OperatingIncome,OrdinaryIncome,NetIncome)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)
+                ''', (code, filename, publicday, period, fiscal_year,
+                      netsales, sga, op, ordinary, netincome))
 
-                print(f'✓ 日本GAAP PLデータを挿入: {code} - {publicday} - {period} ({fiscal_year}年度)')
-                print(f'  売上: {netsales}, 営業利益: {operatingincome}, 純利益: {netincome}')
+                print(f'日本GAAP PLデータを挿入: {code} - {period} {fiscal_year}年度')
 
             conn.commit()
 
-        except sqlite3.Error as e:
-            print(f'データベースエラー: {e}')
-            print(f'データベースパス: {self.DB}')
-            if 'conn' in locals():
-                conn.rollback()
-
         except Exception as e:
             print(f'PLデータ挿入エラー: {e}')
-            print(f'ファイル: {self.pl_file_path}')
             if 'conn' in locals():
                 conn.rollback()
-
         finally:
             if 'conn' in locals():
                 conn.close()
 
 
+# =============================
+# テスト実行
+# =============================
 if __name__ == '__main__':
-    # テスト用ファイルパス（環境に合わせて変更してください）
     test_files = [
         r'E:\Zip_files\1301\0600000-qcpc11-tse-qcedjpfr-13010-2023-12-31-01-2024-02-02-ixbrl.htm'
     ]
@@ -231,13 +220,7 @@ if __name__ == '__main__':
     for pl_file_path in test_files:
         if os.path.exists(pl_file_path):
             print(f'\n処理中: {pl_file_path}')
-
-            plfilenameparser = PlFilenameParser(pl_file_path)
-            print(f'企業コード: {plfilenameparser.get_code()}')
-            print(f'ファイル名: {plfilenameparser.get_filename()}')
-            print(f'公表日: {plfilenameparser.get_public_day()}')
-
-            pldbinserter = PlDBInserter(pl_file_path)
-            pldbinserter.insert_to_pl_db()
+            inserter = PlDBInserter(pl_file_path)
+            inserter.insert_to_pl_db()
         else:
             print(f'ファイルが見つかりません: {pl_file_path}')
