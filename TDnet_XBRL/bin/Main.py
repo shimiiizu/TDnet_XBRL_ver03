@@ -138,6 +138,8 @@ for code in codes:
         bsdbinserter = BsDBInserter(sn_bsfile)
         bsdbinserter.insert_to_bs_db()
 
+
+
     # ■■■PLのレコードを作成する。■■■
     print(f'{code}のフォルダ内のPLファイルのレコードを作成')
 
@@ -182,6 +184,7 @@ for code in codes:
             pl_recorder.record_pl()
             pldbinserter = PlDBInserter(qn_plfile)
             pldbinserter.insert_to_pl_db()
+
 
     # 中間期決算_連結のPLファイルのリスト
     print('中間期決算_連結のPLリストの作成')

@@ -151,7 +151,7 @@ class PlDBInserter:
                 )
             ''')
 
-            inserted = False
+            inserted = True
 
             # --- IFRS ---
             if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower():
@@ -217,7 +217,7 @@ class PlDBInserter:
 # =============================
 if __name__ == '__main__':
     test_files = [
-        r'E:\Zip_files\1301\0600000-qcpc11-tse-qcedjpfr-13010-2023-12-31-01-2024-02-02-ixbrl.htm',
+        r'E:\Zip_files\1301\0501000-anpl01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
         # 複数追加可能
     ]
 
