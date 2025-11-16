@@ -138,69 +138,69 @@ for code in codes:
         bsdbinserter = BsDBInserter(sn_bsfile)
         bsdbinserter.insert_to_bs_db()
 
-# ■■■PLのレコードを作成する。■■■
-print(f'{code}のフォルダ内のPLファイルのレコードを作成')
+    # ■■■PLのレコードを作成する。■■■
+    print(f'{code}のフォルダ内のPLファイルのレコードを作成')
 
-# 本決算_連結のリストの作成
-print('本決算_連結のPLリストの作成')
-ac_plfile_list = pl_filelist_maker.get_acpl_list(new_folder_path)
+    # 本決算_連結のリストの作成
+    print('本決算_連結のPLリストの作成')
+    ac_plfile_list = pl_filelist_maker.get_acpl_list(new_folder_path)
 
-for ac_plfile in ac_plfile_list:
-    pl_recorder = PlRecoder(ac_plfile)
-    pl_recorder.record_pl()
-    pldbinserter = PlDBInserter(ac_plfile)
-    pldbinserter.insert_to_pl_db()
-
-if len(ac_plfile_list) == 0:  # 連結決算がない場合には単独決算のリストを作成
-    # 本決算_単独のリストの作成
-    print('本決算_単独のPLリストの作成')
-    an_plfile_list = pl_filelist_maker.get_anpl_list(new_folder_path)
-
-    for an_plfile in an_plfile_list:
-        pl_recorder = PlRecoder(an_plfile)
+    for ac_plfile in ac_plfile_list:
+        pl_recorder = PlRecoder(ac_plfile)
         pl_recorder.record_pl()
-        pldbinserter = PlDBInserter(an_plfile)
+        pldbinserter = PlDBInserter(ac_plfile)
         pldbinserter.insert_to_pl_db()
 
-# 四半期決算_連結のPLファイルのリスト
-print('四半期決算_連結のPLリストの作成')
-qc_plfile_list = pl_filelist_maker.get_qcpl_list(new_folder_path)
+    if len(ac_plfile_list) == 0:  # 連結決算がない場合には単独決算のリストを作成
+        # 本決算_単独のリストの作成
+        print('本決算_単独のPLリストの作成')
+        an_plfile_list = pl_filelist_maker.get_anpl_list(new_folder_path)
 
-for qc_plfile in qc_plfile_list:
-    pl_recorder = PlRecoder(qc_plfile)
-    pl_recorder.record_pl()
-    pldbinserter = PlDBInserter(qc_plfile)
-    pldbinserter.insert_to_pl_db()
+        for an_plfile in an_plfile_list:
+            pl_recorder = PlRecoder(an_plfile)
+            pl_recorder.record_pl()
+            pldbinserter = PlDBInserter(an_plfile)
+            pldbinserter.insert_to_pl_db()
 
-if len(qc_plfile_list) == 0:  # 連結決算がない場合には単独決算のリストを作成
-    # 四半期決算_単独のPLファイルのリスト
-    print('四半期決算_単独のPLリストの作成')
-    qn_plfile_list = pl_filelist_maker.get_qnpl_list(new_folder_path)
+    # 四半期決算_連結のPLファイルのリスト
+    print('四半期決算_連結のPLリストの作成')
+    qc_plfile_list = pl_filelist_maker.get_qcpl_list(new_folder_path)
 
-    for qn_plfile in qn_plfile_list:
-        pl_recorder = PlRecoder(qn_plfile)
+    for qc_plfile in qc_plfile_list:
+        pl_recorder = PlRecoder(qc_plfile)
         pl_recorder.record_pl()
-        pldbinserter = PlDBInserter(qn_plfile)
+        pldbinserter = PlDBInserter(qc_plfile)
         pldbinserter.insert_to_pl_db()
 
-# 中間期決算_連結のPLファイルのリスト
-print('中間期決算_連結のPLリストの作成')
-sc_plfile_list = pl_filelist_maker.get_scpl_list(new_folder_path)
+    if len(qc_plfile_list) == 0:  # 連結決算がない場合には単独決算のリストを作成
+        # 四半期決算_単独のPLファイルのリスト
+        print('四半期決算_単独のPLリストの作成')
+        qn_plfile_list = pl_filelist_maker.get_qnpl_list(new_folder_path)
 
-for sc_plfile in sc_plfile_list:
-    pl_recorder = PlRecoder(sc_plfile)
-    pl_recorder.record_pl()
-    pldbinserter = PlDBInserter(sc_plfile)
-    pldbinserter.insert_to_pl_db()
+        for qn_plfile in qn_plfile_list:
+            pl_recorder = PlRecoder(qn_plfile)
+            pl_recorder.record_pl()
+            pldbinserter = PlDBInserter(qn_plfile)
+            pldbinserter.insert_to_pl_db()
 
-# 中間期決算_単独のPLファイルのリスト
-print('中間期決算_単独のPLリストの作成')
-sn_plfile_list = pl_filelist_maker.get_snpl_list(new_folder_path)
+    # 中間期決算_連結のPLファイルのリスト
+    print('中間期決算_連結のPLリストの作成')
+    sc_plfile_list = pl_filelist_maker.get_scpl_list(new_folder_path)
 
-for sn_plfile in sn_plfile_list:
-    pl_recorder = PlRecoder(sn_plfile)
-    pl_recorder.record_pl()
-    pldbinserter = PlDBInserter(sn_plfile)
-    pldbinserter.insert_to_pl_db()
+    for sc_plfile in sc_plfile_list:
+        pl_recorder = PlRecoder(sc_plfile)
+        pl_recorder.record_pl()
+        pldbinserter = PlDBInserter(sc_plfile)
+        pldbinserter.insert_to_pl_db()
+
+    # 中間期決算_単独のPLファイルのリスト
+    print('中間期決算_単独のPLリストの作成')
+    sn_plfile_list = pl_filelist_maker.get_snpl_list(new_folder_path)
+
+    for sn_plfile in sn_plfile_list:
+        pl_recorder = PlRecoder(sn_plfile)
+        pl_recorder.record_pl()
+        pldbinserter = PlDBInserter(sn_plfile)
+        pldbinserter.insert_to_pl_db()
 
 print('\n全ての処理が完了しました！')
