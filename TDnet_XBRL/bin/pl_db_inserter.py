@@ -37,67 +37,93 @@ class PlDBInserter:
 
         Returns:
         --------
-        tuple: (period, fiscal_year)
+        tuple: (period, fiscal_year, period_end_date)
             period: 'Q1', 'Q2', 'Q3', 'Q4' or None
             fiscal_year: 年度（整数） or None
+            period_end_date: datetime.date or None
         """
         try:
-            # XBRLファイルをパース
+            # ファイル読み込み
             tree = etree.parse(self.pl_file_path)
             root = tree.getroot()
-
-            # 名前空間を取得
             namespaces = root.nsmap
 
-            # jpcrp_cor:DocumentPeriodEndDate を取得
-            end_date = None
-            end_date_elements = root.findall('.//jpcrp_cor:DocumentPeriodEndDate', namespaces)
+            # --- 1. 期間終了日を XBRL コンテキストから取得 ---
+            period_end_date = None
 
-            if end_date_elements:
-                for elem in end_date_elements:
-                    if elem.text:
-                        try:
-                            end_date = datetime.strptime(elem.text, '%Y-%m-%d')
+            # コンテキストをすべて取得
+            context_elements = root.findall('.//{http://www.xbrl.org/2003/instance}context')
+            for ctx in context_elements:
+                ctx_id = ctx.get('id', '')
+
+                # 四半期・通期を示すコンテキストを優先
+                if re.search(r'CurrentQuarterInstant|CurrentYTDEnd|CurrentQuarterEnd|PriorQuarterInstant|Instant',
+                             ctx_id, re.I):
+                    # <instant>2023-12-31</instant>
+                    instant = ctx.find('.//{http://www.xbrl.org/2003/instance}instant')
+                    if instant is not None and instant.text and re.match(r'\d{4}-\d{2}-\d{2}', instant.text):
+                        period_end_date = datetime.strptime(instant.text.strip(), '%Y-%m-%d').date()
+                        break
+
+                    # <endDate>2023-12-31</endDate>
+                    end_date_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
+                    if end_date_tag is not None and end_date_tag.text and re.match(r'\d{4}-\d{2}-\d{2}',
+                                                                                   end_date_tag.text):
+                        period_end_date = datetime.strptime(end_date_tag.text.strip(), '%Y-%m-%d').date()
+                        break
+
+            # --- 2. フォールバック：DocumentPeriodEndDate（年次報告書用）---
+            if period_end_date is None:
+                # 名前空間動的対応
+                for ns_key in namespaces:
+                    if 'jpcrp' in namespaces[ns_key]:
+                        tag_name = f'{{{_escape_ns(namespaces[ns_key])}}}DocumentPeriodEndDate'
+                        elem = root.find(f'.//{tag_name}')
+                        if elem is not None and elem.text and re.match(r'\d{4}-\d{2}-\d{2}', elem.text):
+                            period_end_date = datetime.strptime(elem.text.strip(), '%Y-%m-%d').date()
                             break
-                        except ValueError:
-                            continue
 
-            if not end_date:
-                print(f'警告: DocumentPeriodEndDateを取得できませんでした - {self.file_name}')
-                return None, None
+            # --- 3. フォールバック：ファイル名から日付抽出 ---
+            if period_end_date is None:
+                # 例: 13010-2023-12-31-01-2024-02-02
+                m = re.search(r'(\d{4}-\d{2}-\d{2})', os.path.basename(self.pl_file_path))
+                if m:
+                    period_end_date = datetime.strptime(m.group(1), '%Y-%m-%d').date()
+                else:
+                    print(f'警告: 期間終了日を特定できませんでした - {self.file_name}')
+                    return None, None, None
 
-            # 年度を取得（終了日の年）
-            fiscal_year = end_date.year
+            # --- 4. 会計年度開始月（fiscal_year_start_month）を推定 ---
+            # 企業コードから事前にマッピングがあれば使う（例: 1301 → 4月始まり）
+            fiscal_start_month = self.get_fiscal_start_month()  # 後述
 
-            # 月からクオーターを判定（4月始まりの会計年度を想定）
-            month = end_date.month
+            fiscal_year = period_end_date.year
+            if period_end_date.month < fiscal_start_month:
+                fiscal_year -= 1  # 例: 3月決算 → 3月末は前年度
 
+            # --- 5. 四半期判定 ---
             period = None
-            if month == 6:  # 6月末 → Q1（4月〜6月）
+            month_offset = (period_end_date.month - fiscal_start_month + 12) % 12 + 1
+
+            if month_offset <= 3:
                 period = 'Q1'
-            elif month == 9:  # 9月末 → Q2（4月〜9月、半期）
+            elif month_offset <= 6:
                 period = 'Q2'
-            elif month == 12:  # 12月末 → Q3（4月〜12月）
+            elif month_offset <= 9:
                 period = 'Q3'
-            elif month == 3:  # 3月末 → Q4（4月〜3月、通期）
+            elif month_offset <= 12:
                 period = 'Q4'
-            else:
-                # 4月始まり以外の会計年度の場合の判定
-                # 終了月から推測
-                print(f'警告: 標準的でない会計期間です（終了月: {month}月） - {self.file_name}')
-                # 一旦Noneとして処理
-                period = None
 
-            print(f'期間情報: 終了日={end_date.date()}, {period}, 年度: {fiscal_year}')
+            print(f'期間情報: 終了日={period_end_date}, {period}, 年度: {fiscal_year}')
 
-            return period, fiscal_year
+            return period, fiscal_year, period_end_date
 
         except Exception as e:
             print(f'期間情報抽出エラー: {e}')
             import traceback
             traceback.print_exc()
             print(f'ファイル: {self.pl_file_path}')
-            return None, None
+            return None, None, None
 
     def insert_to_pl_db(self):
         try:
@@ -199,8 +225,7 @@ class PlDBInserter:
 if __name__ == '__main__':
     # テスト用ファイルパス（環境に合わせて変更してください）
     test_files = [
-        r'C:\Users\Shimizu\PycharmProjects\TDnet_XBRL_ver01\TDnet_XBRL\zip_files\9504\0301000-acpl01-tse-acedjpfr-95040-2015-03-31-01-2015-05-13-ixbrl.htm',
-        r'E:\Zip_files\9504\0600000-qcpl11-tse-qcedjpfr-95040-2014-06-30-01-2014-08-12-ixbrl.htm'
+        r'E:\Zip_files\1301\0600000-qcpc11-tse-qcedjpfr-13010-2023-12-31-01-2024-02-02-ixbrl.htm'
     ]
 
     for pl_file_path in test_files:
