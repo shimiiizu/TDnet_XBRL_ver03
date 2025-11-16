@@ -3,7 +3,6 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 import yfinance as yf
-from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -29,8 +28,8 @@ def get_pl_db_connection():
     return conn
 
 
-def convert_to_quarterly(data):
-    """累計データを四半期ごとの差分に変換"""
+def convert_to_quarterly_from_period(data):
+    """Period情報を使って累計データを四半期ごとの差分に変換"""
     if not data:
         return []
 
@@ -44,94 +43,85 @@ def convert_to_quarterly(data):
 
     metrics = ['netSales', 'operatingIncome', 'ordinaryIncome', 'netIncome']
 
-    parsed = []
+    # FiscalYearとPeriodでグループ化
+    from collections import defaultdict
+    groups = defaultdict(dict)
+
     for item in data:
-        term = item.get('term')
-        if not term:
-            continue
-        try:
-            y_str, m_str = term.split('-')[:2]
-            year = int(y_str)
-            month = int(m_str)
-        except Exception:
+        fiscal_year = item.get('fiscalYear')
+        period = item.get('period')
+
+        if not fiscal_year or not period:
             continue
 
-        # 3月決算想定: Apr-Jun Q1, Jul-Sep Q2, Oct-Dec Q3, Jan-Mar Q4
-        if 4 <= month <= 6:
-            fiscal_year = year
-            quarter = 1
-        elif 7 <= month <= 9:
-            fiscal_year = year
-            quarter = 2
-        elif 10 <= month <= 12:
-            fiscal_year = year
-            quarter = 3
-        else:  # 1-3
-            fiscal_year = year - 1
-            quarter = 4
+        # Period から quarter番号を取得
+        period_map = {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4}
+        quarter = period_map.get(period)
 
-        # 四半期終了日のソートキー
-        if quarter == 1:
-            end_year, end_month, end_day = fiscal_year, 6, 30
-        elif quarter == 2:
-            end_year, end_month, end_day = fiscal_year, 9, 30
-        elif quarter == 3:
-            end_year, end_month, end_day = fiscal_year, 12, 31
-        else:
-            end_year, end_month, end_day = fiscal_year + 1, 3, 31
+        if quarter is None:
+            continue
 
-        sort_key = (end_year, end_month, end_day)
-
+        # 数値に変換
         parsed_item = {
             'original': item,
-            'term': term,
             'fiscalYear': fiscal_year,
             'quarter': quarter,
-            'sort_key': sort_key
+            'period': period
         }
         for m in metrics:
             parsed_item[m] = safe_num(item.get(m))
-        parsed.append(parsed_item)
 
-    groups = defaultdict(list)
-    for p in parsed:
-        groups[p['fiscalYear']].append(p)
+        groups[fiscal_year][quarter] = parsed_item
 
     result = []
 
-    for fy in sorted(groups.keys()):
-        year_group = groups[fy]
-        year_group.sort(key=lambda x: x['sort_key'])
+    # 各年度ごとに処理
+    for fiscal_year in sorted(groups.keys()):
+        year_data = groups[fiscal_year]
 
-        previous = None
-        for item in year_group:
-            out = dict(item['original'])
-            for m in metrics:
-                cur = item.get(m)
-                prev = previous.get(m) if previous is not None else None
+        for quarter in [1, 2, 3, 4]:
+            if quarter not in year_data:
+                continue
 
-                if cur is None:
-                    out[m] = None
-                else:
-                    if prev is None:
-                        out[m] = cur
+            current = year_data[quarter]
+            out = dict(current['original'])
+
+            # Q1はそのまま、Q2以降は差分計算
+            if quarter == 1:
+                # Q1はそのまま使用
+                for m in metrics:
+                    val = current.get(m)
+                    if val is not None and float(val).is_integer():
+                        out[m] = int(val)
                     else:
-                        out[m] = cur - prev
+                        out[m] = val
+            else:
+                # Q2, Q3, Q4は前のクオーターとの差分
+                prev_quarter = quarter - 1
 
-                    if out[m] is not None and float(out[m]).is_integer():
-                        out[m] = int(out[m])
+                if prev_quarter in year_data:
+                    previous = year_data[prev_quarter]
+                    for m in metrics:
+                        cur = current.get(m)
+                        prev = previous.get(m)
 
-            out['_fiscalYear'] = item['fiscalYear']
-            out['_quarter'] = item['quarter']
+                        if cur is None or prev is None:
+                            out[m] = None
+                        else:
+                            out[m] = cur - prev
+                            if out[m] is not None and float(out[m]).is_integer():
+                                out[m] = int(out[m])
+                else:
+                    # 前のクオーターがない場合はNone
+                    for m in metrics:
+                        out[m] = None
+
+            out['_fiscalYear'] = fiscal_year
+            out['_quarter'] = quarter
             result.append(out)
-            previous = item
 
-    # 終了日順でソート
-    result.sort(key=lambda x: (
-        (x.get('_fiscalYear') if x.get('_quarter') != 4 else x.get('_fiscalYear') + 1),
-        {1: 6, 2: 9, 3: 12, 4: 3}[x.get('_quarter')],
-        {1: 30, 2: 30, 3: 31, 4: 31}[x.get('_quarter')]
-    ))
+    # FiscalYearとQuarterでソート
+    result.sort(key=lambda x: (x.get('_fiscalYear', 0), x.get('_quarter', 0)))
 
     return result
 
@@ -207,12 +197,14 @@ def get_bs_data(company_name):
 
 @app.route('/api/pl-data/<code>')
 def get_pl_data(code):
-    """PLデータを取得し、四半期ごとの差分に変換"""
+    """PLデータを取得し、Periodを使って四半期ごとの差分に変換"""
     try:
         conn = get_pl_db_connection()
         rows = conn.execute('''
             SELECT 
                 PublicDay,
+                Period,
+                FiscalYear,
                 NetSales,
                 OperatingIncome,
                 OrdinaryIncome,
@@ -222,26 +214,30 @@ def get_pl_data(code):
                 ProfitLossIFRS
             FROM PL 
             WHERE Code = ?
-            ORDER BY PublicDay
+            ORDER BY FiscalYear, Period
         ''', (code,)).fetchall()
         conn.close()
 
         data = []
         for row in rows:
             data.append({
-                'term': row['PublicDay'][:7],
+                'term': row['PublicDay'][:7] if row['PublicDay'] else None,
+                'period': row['Period'],
+                'fiscalYear': row['FiscalYear'],
                 'netSales': row['NetSales'] or row['RevenueIFRS'],
                 'operatingIncome': row['OperatingIncome'] or row['OperatingProfitLossIFRS'],
                 'ordinaryIncome': row['OrdinaryIncome'],
                 'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
             })
 
-        converted_data = convert_to_quarterly(data)
+        converted_data = convert_to_quarterly_from_period(data)
         print(f"PLデータ変換: {len(data)}件 → {len(converted_data)}件（四半期ごと）")
         return jsonify(converted_data)
 
     except Exception as e:
         print(f"PLデータ取得エラー: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
