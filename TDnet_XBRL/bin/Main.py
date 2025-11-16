@@ -54,7 +54,7 @@ for code in codes:
 
     # 東証上場会社情報サービスからZipファイルをダウンロードする
     print(f'{code}のダウンロード')
-    zipfile_downloader.zip_download(code)  # ここに時間がかかる。
+    #zipfile_downloader.zip_download(code)  # ここに時間がかかる。
 
     # code毎にzipファイルを保管するためのフォルダを作成する
     print(f'{code}のフォルダを作成')
