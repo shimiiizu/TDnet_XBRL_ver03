@@ -120,6 +120,9 @@ def convert_to_quarterly_from_period(data):
             out['_quarter'] = quarter
             # クオーター表記に変換: FY2023 Q1 形式
             out['term'] = f"FY{fiscal_year} Q{quarter}"
+            # publicDayも継承
+            if 'publicDay' in current['original']:
+                out['publicDay'] = current['original']['publicDay']
             result.append(out)
 
     # FiscalYearとQuarterでソート
@@ -167,11 +170,11 @@ def get_companies():
 
 @app.route('/api/bs-data/<company_name>')
 def get_bs_data(company_name):
-    """BSデータを取得（Period/FiscalYearを使用）"""
+    """BSデータを取得（Period/FiscalYearを使用、PublicDayベース）"""
     conn = get_bs_db_connection()
     rows = conn.execute('''
         SELECT 
-            EndDay,
+            PublicDay,
             Period,
             FiscalYear,
             Assets,
@@ -192,6 +195,7 @@ def get_bs_data(company_name):
     for row in rows:
         fiscal_year = row['FiscalYear']
         period = row['Period']
+        public_day = row['PublicDay']
 
         # termフィールドを生成（PLと同じ形式）
         if fiscal_year and period:
@@ -204,7 +208,7 @@ def get_bs_data(company_name):
             'term': term_label,
             'period': period,
             'fiscalYear': fiscal_year,
-            'endDay': row['EndDay'],
+            'publicDay': public_day,
             'assets': row['Assets'],
             'netAssets': row['NetAssets'],
             'currentAssets': row['CurrentAssets'],
@@ -252,6 +256,7 @@ def get_pl_data(code):
                 'term': row['PublicDay'][:7] if row['PublicDay'] else None,
                 'period': row['Period'],
                 'fiscalYear': row['FiscalYear'],
+                'publicDay': row['PublicDay'],
                 'netSales': row['NetSales'] or row['RevenueIFRS'],
                 'operatingIncome': row['OperatingIncome'] or row['OperatingProfitLossIFRS'],
                 'ordinaryIncome': row['OrdinaryIncome'],
@@ -260,6 +265,8 @@ def get_pl_data(code):
 
         converted_data = convert_to_quarterly_from_period(data)
         print(f"PLデータ変換: {len(data)}件 → {len(converted_data)}件（四半期ごと）")
+        if len(converted_data) > 0:
+            print(f"最初のPLデータ: {converted_data[0]}")
         return jsonify(converted_data)
 
     except Exception as e:
@@ -271,7 +278,7 @@ def get_pl_data(code):
 
 @app.route('/api/stock-price/<code>')
 def get_stock_price(code):
-    """株価データを取得し、決算日ベースでマッピング"""
+    """株価データを日次で取得"""
     try:
         ticker = f"{code}.T"
         stock = yf.Ticker(ticker)
@@ -282,17 +289,20 @@ def get_stock_price(code):
         if hist.empty:
             return jsonify([])
 
-        # 日次データを日付をキーにした辞書に変換
-        daily_prices = {}
+        # 日次データを配列形式で返す
+        data = []
         for date, row in hist.iterrows():
-            date_str = date.strftime('%Y-%m-%d')
-            daily_prices[date_str] = round(float(row['Close']), 2)
+            data.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'price': round(float(row['Close']), 2)
+            })
 
-        return jsonify(daily_prices)
+        print(f"株価データ取得: {len(data)}件（日次）")
+        return jsonify(data)
 
     except Exception as e:
         print(f"株価取得エラー ({code}): {e}")
-        return jsonify({}), 500
+        return jsonify([]), 500
 
 
 @app.route('/api/company/<code>')
