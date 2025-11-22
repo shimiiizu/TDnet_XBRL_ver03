@@ -304,12 +304,16 @@
                                         // 財務データの日付を目盛りとして設定
                                         axis.ticks = quarterDates.sort().map(dateStr => {
                                             return {
-                                                value: new Date(dateStr).getTime(),
-                                                label: quarterLabels[dateStr]
+                                                value: new Date(dateStr).getTime()
                                             };
                                         });
                                     },
                                     ticks: {
+                                        callback: function(value, index, ticks) {
+                                            // valueからdate文字列を取得してクオーターラベルを返す
+                                            const dateStr = new Date(value).toISOString().split('T')[0];
+                                            return quarterLabels[dateStr] || '';
+                                        },
                                         maxRotation: 45,
                                         minRotation: 45,
                                         autoSkip: false
