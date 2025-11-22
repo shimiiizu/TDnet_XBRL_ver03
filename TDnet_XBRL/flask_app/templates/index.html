@@ -297,42 +297,22 @@
                                     min: minDate,
                                     max: maxDate,
                                     time: {
-                                        unit: 'quarter',
-                                        displayFormats: {
-                                            quarter: 'yyyy/MM'
-                                        },
                                         tooltipFormat: 'yyyy-MM-dd'
                                     },
                                     title: { display: true, text: '会計年度・クオーター' },
+                                    afterBuildTicks: function(axis) {
+                                        // 財務データの日付を目盛りとして設定
+                                        axis.ticks = quarterDates.sort().map(dateStr => {
+                                            return {
+                                                value: new Date(dateStr).getTime(),
+                                                label: quarterLabels[dateStr]
+                                            };
+                                        });
+                                    },
                                     ticks: {
-                                        source: 'labels',
-                                        callback: function(value, index, ticks) {
-                                            // valueはミリ秒のタイムスタンプ
-                                            const date = new Date(value);
-                                            const dateStr = date.toISOString().split('T')[0];
-
-                                            // クオーター日付の場合のみラベルを表示
-                                            const label = quarterLabels[dateStr];
-                                            if (label) {
-                                                return label;
-                                            }
-
-                                            // 近い日付を探す（±3日以内）
-                                            for (let offset = -3; offset <= 3; offset++) {
-                                                const checkDate = new Date(date);
-                                                checkDate.setDate(checkDate.getDate() + offset);
-                                                const checkDateStr = checkDate.toISOString().split('T')[0];
-                                                if (quarterLabels[checkDateStr]) {
-                                                    return quarterLabels[checkDateStr];
-                                                }
-                                            }
-
-                                            return '';
-                                        },
                                         maxRotation: 45,
                                         minRotation: 45,
-                                        autoSkip: true,
-                                        maxTicksLimit: 50
+                                        autoSkip: false
                                     }
                                 },
                                 y: {
