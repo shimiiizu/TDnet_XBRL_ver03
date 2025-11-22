@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>財務データ分析ツール - BS & PL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px; background:#f5f5f5;}
         h1 {color:#333;text-align:center;}
@@ -169,14 +170,14 @@
 
                 const bs = await bsResp.json();
                 const pl = await plResp.json();
-                const stockPrices = await stockResp.json();
+                const stockData = await stockResp.json();
 
                 console.log('BSデータ:', bs);
                 console.log('PLデータ:', pl);
-                console.log('株価データ:', stockPrices);
+                console.log('株価データ:', stockData);
 
-                renderChart('bs', bs, stockPrices);
-                renderChart('pl', pl, stockPrices);
+                renderChart('bs', bs, stockData);
+                renderChart('pl', pl, stockData);
             } catch (e) {
                 console.error(e);
                 alert('データ取得失敗');
@@ -185,7 +186,7 @@
             }
         }
 
-        function renderChart(type, data, stockPrices) {
+        function renderChart(type, data, stockData) {
             const ctx = document.getElementById(`${type}Chart`).getContext('2d');
             const buttons = document.querySelectorAll(`#${type}Metrics .metric-button`);
             let activeMetric = buttons[0].dataset.metric;
@@ -220,85 +221,129 @@
                     fill: true
                 }];
 
-                // 株価データを重ねる場合
-                if (checkbox.checked && Object.keys(stockPrices).length > 0) {
-                    // 各決算日に対応する株価を取得
-                    const stockData = data.map(d => {
-                        const endDay = d.endDay;
-                        if (!endDay) return null;
+                // 株価データを日次で重ねる場合
+                if (checkbox.checked && stockData && stockData.length > 0) {
+                    // 株価の日付と価格を抽出
+                    const stockLabels = stockData.map(s => s.date);
+                    const stockPrices = stockData.map(s => s.price);
 
-                        // 決算日の株価を探す（前後3日以内）
-                        const targetDate = new Date(endDay);
-                        for (let offset = 0; offset <= 3; offset++) {
-                            // 当日
-                            const dateStr = new Date(targetDate.getTime()).toISOString().split('T')[0];
-                            if (stockPrices[dateStr]) return stockPrices[dateStr];
+                    // 財務データの各クオーターに対応する日付を取得
+                    const financialDates = data.map(d => d.endDay).filter(d => d);
 
-                            // 前日
-                            const prevDate = new Date(targetDate.getTime() - offset * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                            if (stockPrices[prevDate]) return stockPrices[prevDate];
+                    // 全ての日付を結合してソート（重複除去）
+                    const allDates = [...new Set([...stockLabels, ...financialDates])].sort();
 
-                            // 翌日
-                            const nextDate = new Date(targetDate.getTime() + offset * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                            if (stockPrices[nextDate]) return stockPrices[nextDate];
-                        }
-                        return null;
+                    // 株価データを辞書化
+                    const stockDict = {};
+                    stockData.forEach(s => {
+                        stockDict[s.date] = s.price;
                     });
+
+                    // 財務データを日付ベースに変換
+                    const financialDict = {};
+                    data.forEach(d => {
+                        if (d.endDay) {
+                            financialDict[d.endDay] = d[activeMetric];
+                        }
+                    });
+
+                    // 財務データを全日付に展開（前方補完）
+                    const expandedFinancial = [];
+                    let lastValue = null;
+                    allDates.forEach(date => {
+                        if (financialDict[date] !== undefined) {
+                            lastValue = financialDict[date];
+                        }
+                        expandedFinancial.push(lastValue);
+                    });
+
+                    // 株価データを全日付に展開
+                    const expandedStock = allDates.map(date => stockDict[date] || null);
+
+                    // datasetsを再構築
+                    datasets[0].data = expandedFinancial;
 
                     datasets.push({
                         label: '株価（円）',
-                        data: stockData,
+                        data: expandedStock,
                         borderColor: '#FF9800',
                         backgroundColor: 'transparent',
                         yAxisID: 'y1',
                         spanGaps: true,
                         fill: false,
-                        pointRadius: 3,
-                        borderWidth: 2
+                        pointRadius: 0,
+                        borderWidth: 1.5
                     });
-                }
 
-                const chart = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels, datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { position: 'top' },
-                            tooltip: {
-                                callbacks: {
-                                    title: function(context) {
-                                        return context[0].label;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                type: 'category',
-                                title: { display: true, text: '会計年度・クオーター' },
-                                ticks: {
-                                    maxRotation: 45,
-                                    minRotation: 45
-                                }
+                    // ラベルも日付ベースに変更
+                    const dateLabels = allDates;
+
+                    const chart = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: dateLabels, datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { position: 'top' }
                             },
-                            y: {
-                                position: 'left',
-                                title: { display: true, text: '金額 (百万円)' }
-                            },
-                            y1: {
-                                position: 'right',
-                                grid: { drawOnChartArea: false },
-                                title: { display: true, text: '株価 (円)' }
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'month',
+                                        displayFormats: { month: 'yyyy/MM' }
+                                    },
+                                    title: { display: true, text: '日付' }
+                                },
+                                y: {
+                                    position: 'left',
+                                    title: { display: true, text: '金額 (百万円)' }
+                                },
+                                y1: {
+                                    position: 'right',
+                                    grid: { drawOnChartArea: false },
+                                    title: { display: true, text: '株価 (円)' }
+                                }
                             }
                         }
-                    }
-                });
+                    });
 
-                if (type === 'bs') bsChart = chart;
-                else plChart = chart;
+                    if (type === 'bs') bsChart = chart;
+                    else plChart = chart;
+                } else {
+                    // 株価なしの場合はクオーター表記のまま
+                    const chart = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels, datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { position: 'top' }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'category',
+                                    title: { display: true, text: '会計年度・クオーター' },
+                                    ticks: {
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    }
+                                },
+                                y: {
+                                    position: 'left',
+                                    title: { display: true, text: '金額 (百万円)' }
+                                }
+                            }
+                        }
+                    });
+
+                    if (type === 'bs') bsChart = chart;
+                    else plChart = chart;
+                }
             }
             drawChart();
         }
