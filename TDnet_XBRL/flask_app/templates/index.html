@@ -204,46 +204,27 @@
                 if (type === 'bs' && bsChart) { bsChart.destroy(); bsChart = null; }
                 if (type === 'pl' && plChart) { plChart.destroy(); plChart = null; }
 
+                const label = metricNames[activeMetric];
+
                 // 株価表示の有無で処理を分岐
                 if (checkbox.checked && stockData && stockData.length > 0) {
-                    // 株価表示ON: 横軸を日付ベースにして、クオーターラベルのみ表示
+                    // 株価表示ON: 日付ベースで表示
 
-                    // 株価の全日付を取得
-                    const stockDates = stockData.map(s => s.date);
-                    const stockPrices = stockData.map(s => s.price);
+                    // 財務データ: PublicDayの位置のみにプロット
+                    const financialData = data
+                        .filter(d => d.publicDay)
+                        .map(d => ({
+                            x: d.publicDay,
+                            y: d[activeMetric]
+                        }));
 
-                    // 財務データの公表日を取得
-                    const financialDates = data.map(d => d.publicDay).filter(d => d);
+                    // 株価データ: 全日次データ
+                    const stockChartData = stockData.map(s => ({
+                        x: s.date,
+                        y: s.price
+                    }));
 
-                    // 全日付を統合してソート
-                    const allDates = [...new Set([...stockDates, ...financialDates])].sort();
-
-                    // 株価データを辞書化
-                    const stockDict = {};
-                    stockData.forEach(s => stockDict[s.date] = s.price);
-
-                    // 財務データを辞書化
-                    const financialDict = {};
-                    data.forEach(d => {
-                        if (d.publicDay) {
-                            financialDict[d.publicDay] = d[activeMetric];
-                        }
-                    });
-
-                    // 財務データを全日付に展開（前方補完、階段状ではない）
-                    const expandedFinancial = [];
-                    let lastValue = null;
-                    allDates.forEach(date => {
-                        if (financialDict[date] !== undefined) {
-                            lastValue = financialDict[date];
-                        }
-                        expandedFinancial.push(lastValue);
-                    });
-
-                    // 株価データを全日付に展開
-                    const expandedStock = allDates.map(date => stockDict[date] || null);
-
-                    // クオーターラベルを作成（財務データの位置のみ）
+                    // クオーターラベルのマッピング作成
                     const quarterLabels = {};
                     data.forEach(d => {
                         if (d.publicDay) {
@@ -251,21 +232,27 @@
                         }
                     });
 
-                    const label = metricNames[activeMetric];
+                    // 全ての日付を取得
+                    const allDates = [...new Set([
+                        ...stockData.map(s => s.date),
+                        ...data.filter(d => d.publicDay).map(d => d.publicDay)
+                    ])].sort();
 
                     const datasets = [
                         {
                             label,
-                            data: expandedFinancial,
+                            data: financialData,
                             borderColor: '#2196F3',
-                            backgroundColor: 'rgba(33,150,243,0.2)',
+                            backgroundColor: '#2196F3',
                             yAxisID: 'y',
-                            spanGaps: true,
-                            fill: true
+                            spanGaps: false,
+                            fill: false,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
                         },
                         {
                             label: '株価（円）',
-                            data: expandedStock,
+                            data: stockChartData,
                             borderColor: '#FF9800',
                             backgroundColor: 'transparent',
                             yAxisID: 'y1',
@@ -278,7 +265,7 @@
 
                     const chart = new Chart(ctx, {
                         type: 'line',
-                        data: { labels: allDates, datasets },
+                        data: { datasets },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
@@ -288,9 +275,10 @@
                                 tooltip: {
                                     callbacks: {
                                         title: function(context) {
-                                            const date = context[0].label;
-                                            const quarter = quarterLabels[date];
-                                            return quarter ? `${quarter} (${date})` : date;
+                                            const date = context[0].parsed.x;
+                                            const dateStr = new Date(date).toISOString().split('T')[0];
+                                            const quarter = quarterLabels[dateStr];
+                                            return quarter ? `${quarter} (${dateStr})` : dateStr;
                                         }
                                     }
                                 }
@@ -299,16 +287,24 @@
                                 x: {
                                     type: 'time',
                                     time: {
-                                        unit: 'day'
+                                        unit: 'month',
+                                        displayFormats: {
+                                            month: 'yyyy/MM'
+                                        }
                                     },
                                     title: { display: true, text: '会計年度・クオーター' },
                                     ticks: {
-                                        callback: function(value, index) {
-                                            const date = allDates[index];
-                                            // クオーターラベルがある日付のみ表示
-                                            if (quarterLabels[date]) {
-                                                return quarterLabels[date];
+                                        callback: function(value, index, ticks) {
+                                            // 現在の日付を取得
+                                            const date = new Date(value);
+                                            const dateStr = date.toISOString().split('T')[0];
+
+                                            // クオーターラベルがあればそれを表示
+                                            if (quarterLabels[dateStr]) {
+                                                return quarterLabels[dateStr];
                                             }
+
+                                            // クオーターラベルがない日付は表示しない
                                             return '';
                                         },
                                         maxRotation: 45,
@@ -336,16 +332,17 @@
                     // 株価表示OFF: クオーター表記のまま
                     const labels = data.map(d => d.term);
                     const values = data.map(d => d[activeMetric] ?? null);
-                    const label = metricNames[activeMetric];
 
                     const datasets = [{
                         label,
                         data: values,
                         borderColor: '#2196F3',
-                        backgroundColor: 'rgba(33,150,243,0.2)',
+                        backgroundColor: '#2196F3',
                         yAxisID: 'y',
                         spanGaps: true,
-                        fill: true
+                        fill: false,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
                     }];
 
                     const chart = new Chart(ctx, {
