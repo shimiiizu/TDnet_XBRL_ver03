@@ -238,6 +238,14 @@
                     console.log('クオーターラベル:', quarterLabels);
                     console.log('財務データ件数:', financialData.length);
 
+                    // 日付範囲を取得
+                    const allDatesInData = [
+                        ...financialData.map(d => d.x),
+                        ...stockChartData.map(d => d.x)
+                    ].sort();
+                    const minDate = allDatesInData[0];
+                    const maxDate = allDatesInData[allDatesInData.length - 1];
+
                     const datasets = [
                         {
                             label,
@@ -286,15 +294,18 @@
                             scales: {
                                 x: {
                                     type: 'time',
+                                    min: minDate,
+                                    max: maxDate,
                                     time: {
-                                        unit: 'month',
+                                        unit: 'quarter',
                                         displayFormats: {
-                                            month: 'yyyy/MM'
+                                            quarter: 'yyyy/MM'
                                         },
                                         tooltipFormat: 'yyyy-MM-dd'
                                     },
                                     title: { display: true, text: '会計年度・クオーター' },
                                     ticks: {
+                                        source: 'labels',
                                         callback: function(value, index, ticks) {
                                             // valueはミリ秒のタイムスタンプ
                                             const date = new Date(value);
@@ -306,13 +317,22 @@
                                                 return label;
                                             }
 
-                                            // クオーターでない日付は空文字を返す（目盛りは残るがラベルは非表示）
+                                            // 近い日付を探す（±3日以内）
+                                            for (let offset = -3; offset <= 3; offset++) {
+                                                const checkDate = new Date(date);
+                                                checkDate.setDate(checkDate.getDate() + offset);
+                                                const checkDateStr = checkDate.toISOString().split('T')[0];
+                                                if (quarterLabels[checkDateStr]) {
+                                                    return quarterLabels[checkDateStr];
+                                                }
+                                            }
+
                                             return '';
                                         },
                                         maxRotation: 45,
                                         minRotation: 45,
-                                        autoSkip: false,
-                                        includeBounds: true
+                                        autoSkip: true,
+                                        maxTicksLimit: 50
                                     }
                                 },
                                 y: {
