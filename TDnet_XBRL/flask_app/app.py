@@ -193,11 +193,12 @@ def get_bs_data(company_name):
         fiscal_year = row['FiscalYear']
         period = row['Period']
 
+        # termフィールドを生成（PLと同じ形式）
         if fiscal_year and period:
             term_label = f"FY{fiscal_year} {period}"
         else:
-            # Period/FiscalYearがない場合は日付から推定
-            term_label = row['EndDay'][:7] if row['EndDay'] else 'Unknown'
+            # Period/FiscalYearがない場合はスキップ
+            continue
 
         data.append({
             'term': term_label,
@@ -214,6 +215,10 @@ def get_bs_data(company_name):
 
     # FiscalYearとPeriodでソート
     data.sort(key=lambda x: (x.get('fiscalYear') or 0, period_map.get(x.get('period'), 0)))
+
+    print(f"BSデータ取得: {len(data)}件")
+    if len(data) > 0:
+        print(f"最初のデータ: {data[0]}")
 
     return jsonify(data)
 
