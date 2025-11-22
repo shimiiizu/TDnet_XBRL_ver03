@@ -30,7 +30,7 @@ from pl_db_inserter import PlDBInserter
 
 
 # 企業コード設定
-codes = [6062]
+codes = [6062,8306,7593,6199,2471]
 #codes = csv_reader.read_csv('../config/code_list.csv') # ★企業コードはここで設定
 
 # ダウンロードフォルダのパス（自動的にユーザーのDownloadsフォルダを取得）
