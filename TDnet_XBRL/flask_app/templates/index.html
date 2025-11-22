@@ -210,9 +210,10 @@
                 if (checkbox.checked && stockData && stockData.length > 0) {
                     // 株価表示ON: 日付ベースで表示
 
-                    // 財務データ: PublicDayの位置のみにプロット
+                    // 財務データ: PublicDayの位置のみにプロット（日付順にソート）
                     const financialData = data
-                        .filter(d => d.publicDay)
+                        .filter(d => d.publicDay && d[activeMetric] != null)
+                        .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
                         .map(d => ({
                             x: d.publicDay,
                             y: d[activeMetric]
@@ -226,17 +227,16 @@
 
                     // クオーターラベルのマッピング作成
                     const quarterLabels = {};
+                    const quarterDates = [];
                     data.forEach(d => {
                         if (d.publicDay) {
                             quarterLabels[d.publicDay] = d.term;
+                            quarterDates.push(d.publicDay);
                         }
                     });
 
-                    // 全ての日付を取得
-                    const allDates = [...new Set([
-                        ...stockData.map(s => s.date),
-                        ...data.filter(d => d.publicDay).map(d => d.publicDay)
-                    ])].sort();
+                    console.log('クオーターラベル:', quarterLabels);
+                    console.log('財務データ件数:', financialData.length);
 
                     const datasets = [
                         {
@@ -290,26 +290,29 @@
                                         unit: 'month',
                                         displayFormats: {
                                             month: 'yyyy/MM'
-                                        }
+                                        },
+                                        tooltipFormat: 'yyyy-MM-dd'
                                     },
                                     title: { display: true, text: '会計年度・クオーター' },
                                     ticks: {
                                         callback: function(value, index, ticks) {
-                                            // 現在の日付を取得
+                                            // valueはミリ秒のタイムスタンプ
                                             const date = new Date(value);
                                             const dateStr = date.toISOString().split('T')[0];
 
-                                            // クオーターラベルがあればそれを表示
-                                            if (quarterLabels[dateStr]) {
-                                                return quarterLabels[dateStr];
+                                            // クオーター日付の場合のみラベルを表示
+                                            const label = quarterLabels[dateStr];
+                                            if (label) {
+                                                return label;
                                             }
 
-                                            // クオーターラベルがない日付は表示しない
+                                            // クオーターでない日付は空文字を返す（目盛りは残るがラベルは非表示）
                                             return '';
                                         },
                                         maxRotation: 45,
                                         minRotation: 45,
-                                        autoSkip: false
+                                        autoSkip: false,
+                                        includeBounds: true
                                     }
                                 },
                                 y: {
