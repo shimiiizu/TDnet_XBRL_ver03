@@ -1,42 +1,31 @@
-"""
-データベースにBSデータを保管する
-Period と FiscalYear を追加
-
-"""
-
 import sqlite3
+import xbrl_pl_ifrs_parser
+import xbrl_pl_japan_gaap_parser
+from pl_filename_parser import PlFilenameParser
 import os
-import xbrl_bs_common_parser
-import xbrl_bs_japan_gaap_parser
-import xbrl_bs_ifrs_parser
-from bs_filename_parser import BsFilenameParser
 from datetime import datetime
 from lxml import etree
 import re
 
 
-class BsDBInserter:
+class PlDBInserter:
 
-    def __init__(self, bs_file_path):
-        self.bs_file_path = bs_file_path
-        self.file_name = os.path.basename(bs_file_path)
+    def __init__(self, pl_file_path):
+        self.pl_file_path = pl_file_path
+        self.file_name = os.path.basename(pl_file_path)
 
         # 企業コードをファイル名から取得
-        parser = BsFilenameParser(bs_file_path)
+        parser = PlFilenameParser(pl_file_path)
         self.company_code = parser.get_code()
 
-        # プロジェクトのルートディレクトリからの相対パスでDBを指定
+        # データベースパス
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        db_dir = os.path.join(project_root, 'db')
-
-        # dbフォルダが存在しない場合は作成
+        db_dir = os.path.join(current_dir, '..', 'db')
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
-            print(f"データベースフォルダを作成しました: {db_dir}")
-
-        self.DB = os.path.join(db_dir, 'BS_DB.db')
-        print(f"データベースパス: {self.DB}")
+            print(f'データベースディレクトリを作成しました: {db_dir}')
+        self.DB = os.path.join(db_dir, 'PL_DB.db')
+        print(f'データベースパス: {self.DB}')
 
     # =============================
     # 補助関数：名前空間エスケープ
@@ -59,11 +48,11 @@ class BsDBInserter:
         return (end_month % 12) + 1
 
     # =============================
-    # 期間情報抽出（PLと同じロジック）
+    # 期間情報抽出
     # =============================
     def extract_period_info(self):
         try:
-            tree = etree.parse(self.bs_file_path)
+            tree = etree.parse(self.pl_file_path)
             root = tree.getroot()
             namespaces = root.nsmap
 
@@ -86,7 +75,7 @@ class BsDBInserter:
             if period_end_date is None:
                 for ns_key, ns_url in namespaces.items():
                     if 'jpcrp' in ns_url.lower():
-                        tag_name = f'{{{self._escape_ns(ns_url)}}}DocumentPeriodEndDate'
+                        tag_name = f'{{{{{self._escape_ns(ns_url)}}}}}DocumentPeriodEndDate'
                         elem = root.find(f'.//{tag_name}')
                         if elem is not None and elem.text and re.match(r'\d{4}-\d{2}-\d{2}', elem.text.strip()):
                             period_end_date = datetime.strptime(elem.text.strip(), '%Y-%m-%d').date()
@@ -97,15 +86,6 @@ class BsDBInserter:
                 m = re.search(r'(\d{4}-\d{2}-\d{2})', self.file_name)
                 if m:
                     period_end_date = datetime.strptime(m.group(1), '%Y-%m-%d').date()
-
-            # 4. CurrentPeriodEndDateDEI から取得（BS特有）
-            if period_end_date is None:
-                try:
-                    end_day_str = xbrl_bs_common_parser.get_CurrentPeriodEndDateDEI(self.bs_file_path)
-                    if end_day_str and re.match(r'\d{4}-\d{2}-\d{2}', end_day_str):
-                        period_end_date = datetime.strptime(end_day_str, '%Y-%m-%d').date()
-                except:
-                    pass
 
             if not period_end_date:
                 print(f'警告: 期間終了日を特定できませんでした - {self.file_name}')
@@ -129,121 +109,124 @@ class BsDBInserter:
             traceback.print_exc()
             return None, None, None
 
-    def insert_to_bs_db(self):
-        accounting_standard = xbrl_bs_common_parser.get_AccountingStandard(self.bs_file_path)
-        company_name = xbrl_bs_common_parser.get_company_name(self.bs_file_path)
-        bsfilenameparser = BsFilenameParser(self.bs_file_path)
-        code = bsfilenameparser.get_code()
-        public_day = bsfilenameparser.get_public_day()
-        filename = bsfilenameparser.get_filename()
-        currentfiscalyearstartdatedei = xbrl_bs_common_parser.get_CurrentFiscalYearStartDateDEI(self.bs_file_path)
-        currentperiodenddatedei = xbrl_bs_common_parser.get_CurrentPeriodEndDateDEI(self.bs_file_path)
-        typeofcurrentperioddei = xbrl_bs_common_parser.get_TypeOfCurrentPeriodDEI(self.bs_file_path)
-        accountingstandard = xbrl_bs_common_parser.get_AccountingStandard(self.bs_file_path)
+    # =============================
+    # DB挿入（重複チェックなし・常に追加）
+    # =============================
+    def insert_to_pl_db(self):
+        try:
+            plparser = PlFilenameParser(self.pl_file_path)
+            filename = plparser.get_filename()
+            code = plparser.get_code()
+            publicday = plparser.get_public_day()
 
-        # 期間情報取得
-        period, fiscal_year, _ = self.extract_period_info()
-        if period is None or fiscal_year is None:
-            print(f'警告: 期間情報が取得できませんでした。デフォルト値を使用します - {filename}')
-            # デフォルト値として、EndDayから推定
-            if currentperiodenddatedei:
-                try:
-                    end_date = datetime.strptime(currentperiodenddatedei, '%Y-%m-%d').date()
-                    fiscal_start_month = self.get_fiscal_start_month()
-                    fiscal_year = end_date.year
-                    if end_date.month < fiscal_start_month:
-                        fiscal_year -= 1
-                    month_in_fiscal = (end_date.month - fiscal_start_month + 12) % 12 + 1
-                    period = 'Q1' if month_in_fiscal <= 3 else 'Q2' if month_in_fiscal <= 6 else 'Q3' if month_in_fiscal <= 9 else 'Q4'
-                except:
-                    period = 'Q4'
-                    fiscal_year = 2020
+            # 期間情報取得
+            period, fiscal_year, _ = self.extract_period_info()
+            if period is None or fiscal_year is None:
+                print(f'スキップ: 期間情報が取得できませんでした - {filename}')
+                return
 
-        conn = sqlite3.connect(self.DB)
-        cursor = conn.cursor()
+            conn = sqlite3.connect(self.DB)
+            cursor = conn.cursor()
 
-        # テーブル作成時にPeriodとFiscalYearカラムを追加
-        cursor.execute('''CREATE TABLE IF NOT EXISTS BS (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            FileName TEXT,
-            CompanyName TEXT,
-            Code TEXT,
-            FinancialReportType TEXT,
-            AccountingStandard TEXT,
-            PublicDay TEXT,
-            StartDay TEXT,
-            EndDay TEXT,
-            Period TEXT,
-            FiscalYear INTEGER,
-            CashAndDeposits REAL,
-            CashAndCashEquivalent REAL,
-            CurrentAssets REAL,
-            PropertyPlantAndEquipment REAL,
-            Assets REAL,
-            RetainedEarnings REAL,
-            NetAssets REAL,
-            Equity REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''')
+            # テーブル作成（初回のみ）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS PL (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Code TEXT,
+                    FileName TEXT,
+                    PublicDay TEXT,
+                    Period TEXT,
+                    FiscalYear INTEGER,
+                    RevenueIFRS REAL,
+                    SellingGeneralAndAdministrativeExpensesIFRS REAL,
+                    OperatingProfitLossIFRS REAL,
+                    ProfitLossIFRS REAL,
+                    DilutedEarningsLossPerShareIFRS REAL,
+                    NetSales REAL,
+                    SellingGeneralAndAdministrativeExpenses REAL,
+                    OperatingIncome REAL,
+                    OrdinaryIncome REAL,
+                    NetIncome REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
 
-        cursor.execute('SELECT COUNT(*) FROM BS WHERE FileName = ?', (filename,))
-        if cursor.fetchone()[0] == 0:
+            inserted = True
 
-            if accounting_standard == "IFRS":
-                current_assets_ifrs = xbrl_bs_ifrs_parser.get_CurrentAssets(self.bs_file_path)
-                assets_ifrs = xbrl_bs_ifrs_parser.get_Assets(self.bs_file_path)
-                cashandcashequivalent_ifrs = xbrl_bs_ifrs_parser.get_CashAndCashEquivalent(self.bs_file_path)
-                propertyplantandequipment = xbrl_bs_ifrs_parser.get_PropertyPlantAndEquipment(self.bs_file_path)
-                retainedearningsifrs = xbrl_bs_ifrs_parser.get_RetainedEarningsIFRS(self.bs_file_path)
-                equityifrs = xbrl_bs_ifrs_parser.get_EquityIFRS(self.bs_file_path)
+            # --- IFRS ---
+            if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower():
+                print(f'IFRS形式のPLファイルを処理中: {filename}')
 
-                cursor.execute('''INSERT INTO BS 
-                (FileName, CompanyName, Code, FinancialReportType, 
-                AccountingStandard, PublicDay, StartDay, EndDay, Period, FiscalYear,
-                CashAndCashEquivalent, CurrentAssets, PropertyPlantAndEquipment, 
-                Assets, RetainedEarnings, Equity)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                               (filename, company_name, code, typeofcurrentperioddei,
-                                accountingstandard, public_day, currentfiscalyearstartdatedei,
-                                currentperiodenddatedei, period, fiscal_year,
-                                cashandcashequivalent_ifrs, current_assets_ifrs,
-                                propertyplantandequipment, assets_ifrs, retainedearningsifrs, equityifrs))
+                revenueifrs = xbrl_pl_ifrs_parser.get_RevenueIFRS(self.pl_file_path)
+                sga_ifrs = xbrl_pl_ifrs_parser.get_SellingGeneralAndAdministrativeExpensesIFRS(self.pl_file_path)
+                op_ifrs = xbrl_pl_ifrs_parser.get_OperatingProfitLossIFRS(self.pl_file_path)
+                profit_ifrs = xbrl_pl_ifrs_parser.get_ProfitLossIFRS(self.pl_file_path)
+                eps_ifrs = xbrl_pl_ifrs_parser.get_DilutedEarningsLossPerShareIFRS(self.pl_file_path)
 
-                print(f'IFRS BSデータを登録: {code} | {period} | {fiscal_year}年度')
+                cursor.execute('''
+                    INSERT INTO PL 
+                    (Code,FileName,PublicDay,Period,FiscalYear,
+                     RevenueIFRS,SellingGeneralAndAdministrativeExpensesIFRS,
+                     OperatingProfitLossIFRS,ProfitLossIFRS,DilutedEarningsLossPerShareIFRS)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)
+                ''', (code, filename, publicday, period, fiscal_year,
+                      revenueifrs, sga_ifrs, op_ifrs, profit_ifrs, eps_ifrs))
 
-            elif accounting_standard == "Japan GAAP":
-                cashanddeposits = xbrl_bs_japan_gaap_parser.get_CashAndDeposits(self.bs_file_path)
-                propertyplantandequipment = xbrl_bs_japan_gaap_parser.get_PropertyPlantAndEquipment(self.bs_file_path)
-                current_assets_japan_gaap = xbrl_bs_japan_gaap_parser.get_CurrentAssets(self.bs_file_path)
-                assets_japan_gaap = xbrl_bs_japan_gaap_parser.get_Assets(self.bs_file_path)
-                retainedearnings = xbrl_bs_japan_gaap_parser.get_RetainedEarnings(self.bs_file_path)
-                netassets = xbrl_bs_japan_gaap_parser.get_NetAssets(self.bs_file_path)
+                print(f'IFRS PLデータを登録: {code} | {period} | {fiscal_year}年度')
+                inserted = True
 
-                cursor.execute('''INSERT INTO BS 
-                (FileName, CompanyName, Code, FinancialReportType, 
-                AccountingStandard, PublicDay, StartDay, EndDay, Period, FiscalYear,
-                CashAndDeposits, CurrentAssets, PropertyPlantAndEquipment, 
-                Assets, RetainedEarnings, NetAssets)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
-                               (filename, company_name, code, typeofcurrentperioddei,
-                                accountingstandard, public_day, currentfiscalyearstartdatedei,
-                                currentperiodenddatedei, period, fiscal_year,
-                                cashanddeposits, current_assets_japan_gaap,
-                                propertyplantandequipment, assets_japan_gaap,
-                                retainedearnings, netassets))
+            # --- 日本GAAP ---
+            elif 'jpfr' in self.file_name.lower() and 'pl' in self.file_name.lower():
+                print(f'日本GAAP形式のPLファイルを処理中: {filename}')
 
-                print(f'日本GAAP BSデータを登録: {code} | {period} | {fiscal_year}年度')
+                netsales = xbrl_pl_japan_gaap_parser.get_NetSales(self.pl_file_path)
+                sga = xbrl_pl_japan_gaap_parser.get_SellingGeneralAndAdministrativeExpenses(self.pl_file_path)
+                op = xbrl_pl_japan_gaap_parser.get_OperatingIncome(self.pl_file_path)
+                ordinary = xbrl_pl_japan_gaap_parser.get_OrdinaryIncome(self.pl_file_path)
+                netincome = xbrl_pl_japan_gaap_parser.get_NetIncome(self.pl_file_path)
 
-            print(f'{filename}を登録しました。')
+                cursor.execute('''
+                    INSERT INTO PL 
+                    (Code,FileName,PublicDay,Period,FiscalYear,
+                     NetSales,SellingGeneralAndAdministrativeExpenses,
+                     OperatingIncome,OrdinaryIncome,NetIncome)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)
+                ''', (code, filename, publicday, period, fiscal_year,
+                      netsales, sga, op, ordinary, netincome))
 
-        else:
-            print(f'すでに{filename}は登録されています。')
+                print(f'日本GAAP PLデータを登録: {code} | {period} | {fiscal_year}年度 | 売上={netsales}')
+                inserted = True
 
-        conn.commit()
-        conn.close()
+            if inserted:
+                conn.commit()
+                print(f'登録成功: {filename}')
+            else:
+                print(f'該当なし: IFRS でも JPGAAP でもないファイル - {filename}')
+
+        except Exception as e:
+            print(f'挿入エラー: {e}')
+            if 'conn' in locals():
+                conn.rollback()
+        finally:
+            if 'conn' in locals():
+                conn.close()
 
 
+# =============================
+# テスト実行（複数ファイル対応）
+# =============================
 if __name__ == '__main__':
-    bs_file_path = r'C:\Users\Shimizu\PycharmProjects\TDnet_XBRL\TDnet_XBRL\zip_files\2780\0101010-acbs01-tse-acedjpfr-27800-2014-03-31-02-2014-10-10-ixbrl.htm'
-    bsdbinserter = BsDBInserter(bs_file_path)
-    bsdbinserter.insert_to_bs_db()
+    test_files = [
+        r'E:\Zip_files\1301\0501000-anpl01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
+        # 複数追加可能
+    ]
+
+    for pl_file_path in test_files:
+        if os.path.exists(pl_file_path):
+            print(f'\n{"="*60}')
+            print(f'処理開始: {pl_file_path}')
+            print(f'{"="*60}')
+            inserter = PlDBInserter(pl_file_path)
+            inserter.insert_to_pl_db()
+        else:
+            print(f'ファイルが見つかりません: {pl_file_path}')
