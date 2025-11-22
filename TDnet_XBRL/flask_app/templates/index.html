@@ -206,7 +206,7 @@
 
                 // 株価表示の有無で処理を分岐
                 if (checkbox.checked && stockData && stockData.length > 0) {
-                    // 株価表示ON: 横軸を日付ベースにして、クオーターラベルを配置
+                    // 株価表示ON: 横軸を日付ベースにして、クオーターラベルのみ表示
 
                     // 株価の全日付を取得
                     const stockDates = stockData.map(s => s.date);
@@ -214,7 +214,6 @@
 
                     // 財務データの公表日を取得
                     const financialDates = data.map(d => d.publicDay).filter(d => d);
-                    const financialValues = data.map(d => d[activeMetric]);
 
                     // 全日付を統合してソート
                     const allDates = [...new Set([...stockDates, ...financialDates])].sort();
@@ -231,7 +230,7 @@
                         }
                     });
 
-                    // 財務データを全日付に展開（階段状に前方補完）
+                    // 財務データを全日付に展開（前方補完、階段状ではない）
                     const expandedFinancial = [];
                     let lastValue = null;
                     allDates.forEach(date => {
@@ -262,8 +261,7 @@
                             backgroundColor: 'rgba(33,150,243,0.2)',
                             yAxisID: 'y',
                             spanGaps: true,
-                            fill: true,
-                            stepped: true  // 階段状に表示
+                            fill: true
                         },
                         {
                             label: '株価（円）',
@@ -301,21 +299,15 @@
                                 x: {
                                     type: 'time',
                                     time: {
-                                        unit: 'month',
-                                        displayFormats: { month: 'yyyy/MM' }
+                                        unit: 'day'
                                     },
-                                    title: { display: true, text: '日付' },
+                                    title: { display: true, text: '会計年度・クオーター' },
                                     ticks: {
                                         callback: function(value, index) {
                                             const date = allDates[index];
                                             // クオーターラベルがある日付のみ表示
                                             if (quarterLabels[date]) {
                                                 return quarterLabels[date];
-                                            }
-                                            // 月の最初の日だけ日付を表示
-                                            const d = new Date(date);
-                                            if (d.getDate() === 1) {
-                                                return d.toISOString().substr(0, 7);
                                             }
                                             return '';
                                         },
