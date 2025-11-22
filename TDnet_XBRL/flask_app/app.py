@@ -118,6 +118,8 @@ def convert_to_quarterly_from_period(data):
 
             out['_fiscalYear'] = fiscal_year
             out['_quarter'] = quarter
+            # クオーター表記に変更: FY2023 Q1 形式
+            out['term'] = f"FY{fiscal_year} Q{quarter}"
             result.append(out)
 
     # FiscalYearとQuarterでソート
@@ -165,6 +167,7 @@ def get_companies():
 
 @app.route('/api/bs-data/<company_name>')
 def get_bs_data(company_name):
+    """BSデータを取得し、クオーター表記を追加"""
     conn = get_bs_db_connection()
     rows = conn.execute('''
         SELECT 
@@ -183,8 +186,27 @@ def get_bs_data(company_name):
 
     data = []
     for row in rows:
+        end_day = row['EndDay']
+        # YYYY-MM-DD から年度とクオーターを推定
+        year = int(end_day[:4])
+        month = int(end_day[5:7])
+
+        # 日本企業の会計年度は通常3月期が多いため、簡易的に推定
+        # 3月期 → Q4、6月期 → Q1、9月期 → Q2、12月期 → Q3
+        quarter_map = {3: 'Q4', 6: 'Q1', 9: 'Q2', 12: 'Q3'}
+        quarter = quarter_map.get(month, 'Q4')
+
+        # 3月期の場合、会計年度は前年度とする（例: 2023年3月 → FY2022）
+        if month <= 3:
+            fiscal_year = year - 1
+        else:
+            fiscal_year = year
+
+        term_label = f"FY{fiscal_year} {quarter}"
+
         data.append({
-            'term': row['EndDay'][:7],
+            'term': term_label,
+            'originalDate': end_day,  # 元の日付も保持
             'assets': row['Assets'],
             'netAssets': row['NetAssets'],
             'currentAssets': row['CurrentAssets'],
@@ -243,6 +265,7 @@ def get_pl_data(code):
 
 @app.route('/api/stock-price/<code>')
 def get_stock_price(code):
+    """株価データを取得（クオーター単位に変換）"""
     try:
         ticker = f"{code}.T"
         stock = yf.Ticker(ticker)
@@ -253,8 +276,30 @@ def get_stock_price(code):
         if hist.empty:
             return jsonify([])
 
-        data = [{'date': date.strftime('%Y-%m-%d'), 'price': round(float(row['Close']), 2)}
-                for date, row in hist.iterrows()]
+        # 日次データをクオーター末の価格に変換
+        quarterly_prices = {}
+        for date, row in hist.iterrows():
+            year = date.year
+            month = date.month
+
+            # 3月期の会計年度に合わせて変換
+            quarter_map = {
+                (1, 2, 3): ('Q4', year - 1),
+                (4, 5, 6): ('Q1', year),
+                (7, 8, 9): ('Q2', year),
+                (10, 11, 12): ('Q3', year)
+            }
+
+            for months, (q, fy) in quarter_map.items():
+                if month in months:
+                    quarter_key = f"FY{fy} {q}"
+                    # 各クオーターの最終日の価格を使用
+                    quarterly_prices[quarter_key] = round(float(row['Close']), 2)
+                    break
+
+        # リスト形式に変換
+        data = [{'term': term, 'price': price} for term, price in quarterly_prices.items()]
+
         return jsonify(data)
 
     except Exception as e:
