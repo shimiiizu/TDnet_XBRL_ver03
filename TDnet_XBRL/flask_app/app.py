@@ -118,7 +118,7 @@ def convert_to_quarterly_from_period(data):
 
             out['_fiscalYear'] = fiscal_year
             out['_quarter'] = quarter
-            # クオーター表記に変更: FY2023 Q1 形式
+            # クオーター表記に変換: FY2023 Q1 形式
             out['term'] = f"FY{fiscal_year} Q{quarter}"
             result.append(out)
 
@@ -167,11 +167,13 @@ def get_companies():
 
 @app.route('/api/bs-data/<company_name>')
 def get_bs_data(company_name):
-    """BSデータを取得し、クオーター表記を追加"""
+    """BSデータを取得（Period/FiscalYearを使用）"""
     conn = get_bs_db_connection()
     rows = conn.execute('''
         SELECT 
             EndDay,
+            Period,
+            FiscalYear,
             Assets,
             NetAssets,
             CurrentAssets,
@@ -180,33 +182,28 @@ def get_bs_data(company_name):
             RetainedEarnings
         FROM BS 
         WHERE CompanyName = ?
-        ORDER BY EndDay
+        ORDER BY FiscalYear, Period
     ''', (company_name,)).fetchall()
     conn.close()
 
     data = []
+    period_map = {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4}
+
     for row in rows:
-        end_day = row['EndDay']
-        # YYYY-MM-DD から年度とクオーターを推定
-        year = int(end_day[:4])
-        month = int(end_day[5:7])
+        fiscal_year = row['FiscalYear']
+        period = row['Period']
 
-        # 日本企業の会計年度は通常3月期が多いため、簡易的に推定
-        # 3月期 → Q4、6月期 → Q1、9月期 → Q2、12月期 → Q3
-        quarter_map = {3: 'Q4', 6: 'Q1', 9: 'Q2', 12: 'Q3'}
-        quarter = quarter_map.get(month, 'Q4')
-
-        # 3月期の場合、会計年度は前年度とする（例: 2023年3月 → FY2022）
-        if month <= 3:
-            fiscal_year = year - 1
+        if fiscal_year and period:
+            term_label = f"FY{fiscal_year} {period}"
         else:
-            fiscal_year = year
-
-        term_label = f"FY{fiscal_year} {quarter}"
+            # Period/FiscalYearがない場合は日付から推定
+            term_label = row['EndDay'][:7] if row['EndDay'] else 'Unknown'
 
         data.append({
             'term': term_label,
-            'originalDate': end_day,  # 元の日付も保持
+            'period': period,
+            'fiscalYear': fiscal_year,
+            'endDay': row['EndDay'],
             'assets': row['Assets'],
             'netAssets': row['NetAssets'],
             'currentAssets': row['CurrentAssets'],
@@ -214,6 +211,10 @@ def get_bs_data(company_name):
             'ppe': row['ppe'],
             'retainedEarnings': row['RetainedEarnings']
         })
+
+    # FiscalYearとPeriodでソート
+    data.sort(key=lambda x: (x.get('fiscalYear') or 0, period_map.get(x.get('period'), 0)))
+
     return jsonify(data)
 
 
@@ -265,7 +266,7 @@ def get_pl_data(code):
 
 @app.route('/api/stock-price/<code>')
 def get_stock_price(code):
-    """株価データを取得（クオーター単位に変換）"""
+    """株価データを取得し、決算日ベースでマッピング"""
     try:
         ticker = f"{code}.T"
         stock = yf.Ticker(ticker)
@@ -276,35 +277,17 @@ def get_stock_price(code):
         if hist.empty:
             return jsonify([])
 
-        # 日次データをクオーター末の価格に変換
-        quarterly_prices = {}
+        # 日次データを日付をキーにした辞書に変換
+        daily_prices = {}
         for date, row in hist.iterrows():
-            year = date.year
-            month = date.month
+            date_str = date.strftime('%Y-%m-%d')
+            daily_prices[date_str] = round(float(row['Close']), 2)
 
-            # 3月期の会計年度に合わせて変換
-            quarter_map = {
-                (1, 2, 3): ('Q4', year - 1),
-                (4, 5, 6): ('Q1', year),
-                (7, 8, 9): ('Q2', year),
-                (10, 11, 12): ('Q3', year)
-            }
-
-            for months, (q, fy) in quarter_map.items():
-                if month in months:
-                    quarter_key = f"FY{fy} {q}"
-                    # 各クオーターの最終日の価格を使用
-                    quarterly_prices[quarter_key] = round(float(row['Close']), 2)
-                    break
-
-        # リスト形式に変換
-        data = [{'term': term, 'price': price} for term, price in quarterly_prices.items()]
-
-        return jsonify(data)
+        return jsonify(daily_prices)
 
     except Exception as e:
         print(f"株価取得エラー ({code}): {e}")
-        return jsonify([]), 500
+        return jsonify({}), 500
 
 
 @app.route('/api/company/<code>')
