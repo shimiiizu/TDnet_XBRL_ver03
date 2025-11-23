@@ -28,7 +28,7 @@ class FileManager:
         """
         指定フォルダ内の全ファイル削除
         """
-        from bin import all_files_deleter
+        from bin.fileio import all_files_deleter
         all_files_deleter.delete_all_files(str(folder))
 
     @staticmethod
