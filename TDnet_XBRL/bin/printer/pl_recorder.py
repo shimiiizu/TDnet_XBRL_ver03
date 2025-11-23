@@ -2,7 +2,7 @@
 xbrl_file_pathを引数として、PLのレコードを作成する（プリントアウトする）
 
 """
-from bin import pl_ifrs_printer, pl_japan_gaap_printer
+from bin.printer import pl_ifrs_printer, pl_japan_gaap_printer
 import os
 
 class PlRecoder:
