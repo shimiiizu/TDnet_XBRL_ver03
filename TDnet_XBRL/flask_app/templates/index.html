@@ -212,14 +212,25 @@
                     // 株価表示ON: 日付ベースで表示
 
                     // 財務データ: PublicDayの位置のみにプロット（日付順にソート）
-                    const financialData = data
+                    // Q4とそれ以外で分ける
+                    const financialDataQ4 = [];
+                    const financialDataOther = [];
+
+                    data
                         .filter(d => d.publicDay && d[activeMetric] != null)
                         .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
-                        .map(d => ({
-                            x: d.publicDay,
-                            y: d[activeMetric],
-                            label: d.term  // クオーターラベルを保持
-                        }));
+                        .forEach(d => {
+                            const dataPoint = {
+                                x: d.publicDay,
+                                y: d[activeMetric],
+                                label: d.term
+                            };
+                            if (d.term && d.term.includes('.Q4')) {
+                                financialDataQ4.push(dataPoint);
+                            } else {
+                                financialDataOther.push(dataPoint);
+                            }
+                        });
 
                     // 株価データ: 全日次データ
                     const stockChartData = stockData.map(s => ({
@@ -374,7 +385,22 @@
                         spanGaps: true,
                         fill: false,
                         pointRadius: 5,
-                        pointHoverRadius: 7
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: function(context) {
+                            // Q4のみ赤色
+                            const labelValue = labels[context.dataIndex];
+                            if (labelValue && labelValue.includes('.Q4')) {
+                                return '#F44336';
+                            }
+                            return '#2196F3';
+                        },
+                        pointBorderColor: function(context) {
+                            const labelValue = labels[context.dataIndex];
+                            if (labelValue && labelValue.includes('.Q4')) {
+                                return '#F44336';
+                            }
+                            return '#2196F3';
+                        }
                     }];
 
                     const chart = new Chart(ctx, {
