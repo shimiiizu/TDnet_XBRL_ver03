@@ -3,6 +3,7 @@
 from bin.config.config import Config
 from bin.system.xbrl_system import XBRLProcessingSystem
 
+
 def main():
     """
     XBRL処理システムのエントリーポイント。

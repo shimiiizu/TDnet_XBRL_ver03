@@ -4,9 +4,8 @@ xbrl_file_pathを引数として、BSのレコードを作成する（プリン�
 """
 
 from bin.parser import xbrl_bs_common_parser
-import bs_common_printer  # 自作モジュール：BSの基本情報をプリントアウトする
-import bs_ifrs_printer  # 自作モジュール：BS（IFRS）情報をプリントアウトする
-import bs_japan_gaap_printer  # 自作モジュール：BS（Japan_Gaap）情報をプリントアウトする
+from bin import bs_common_printer, bs_japan_gaap_printer, bs_ifrs_printer
+
 
 class BsRecoder:
 

@@ -2,8 +2,7 @@
 xbrl_file_pathを引数として、PLのレコードを作成する（プリントアウトする）
 
 """
-import pl_ifrs_printer  # 自作モジュール：BS（IFRS）情報をプリントアウトする
-import pl_japan_gaap_printer  # 自作モジュール：BS（Japan_Gaap）情報をプリントアウトする
+from bin import pl_ifrs_printer, pl_japan_gaap_printer
 import os
 
 class PlRecoder:
