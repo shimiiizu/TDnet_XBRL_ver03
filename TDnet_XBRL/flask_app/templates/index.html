@@ -1,410 +1,366 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>財務データ分析ツール - BS & PL</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <style>
-        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px; background:#f5f5f5;}
-        h1 {color:#333;text-align:center;}
-        .controls {background:#fff;padding:20px;border-radius:8px;margin-bottom:20px;box-shadow:0 2px 4px rgba(0,0,0,.1);}
-        label {display:block;margin-bottom:8px;font-weight:bold;color:#555;}
-        select,input[type=text]{width:100%;padding:10px;font-size:16px;border:1px solid #ddd;border-radius:4px;margin-bottom:10px;}
-        input[type=checkbox]{margin-right:8px;}
-        button {width:100%;padding:10px;font-size:16px;background:#2196F3;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-bottom:15px;}
-        button:hover {background:#1976D2;}
-        .tabs {display:flex;gap:10px;margin-bottom:20px;background:#fff;padding:10px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);}
-        .tab {flex:1;padding:12px;font-size:16px;background:#e0e0e0;color:#333;border:none;border-radius:4px;cursor:pointer;transition:all .3s;font-weight:bold;}
-        .tab:hover {background:#d0d0d0;}
-        .tab.active {background:#2196F3;color:#fff;}
-        .tab-content {display:none;}
-        .tab-content.active {display:block;}
-        .metric-selector {display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:20px;}
-        .metric-button {padding:12px;font-size:14px;background:#e0e0e0;color:#333;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:all .3s;}
-        .metric-button:hover {background:#d0d0d0;}
-        .metric-button.active {background:#2196F3;color:#fff;border-color:#1976D2;}
+from flask import Flask, render_template, jsonify
+import sqlite3
+import os
+from datetime import datetime, timedelta
+import yfinance as yf
 
-        .chart-container {
-            background:#fff;
-            padding:20px;
-            border-radius:8px;
-            box-shadow:0 2px 4px rgba(0,0,0,.1);
-            margin-bottom:20px;
-            position:relative;
-            height: 350px;
-            overflow: hidden;
+app = Flask(__name__)
+
+# データベースパス
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+BS_DB_PATH = os.path.join(project_root, 'db', 'BS_DB.db')
+PL_DB_PATH = os.path.join(project_root, 'db', 'PL_DB.db')
+
+print(f"BSデータベースパス: {BS_DB_PATH}")
+print(f"PLデータベースパス: {PL_DB_PATH}")
+
+
+def get_bs_db_connection():
+    conn = sqlite3.connect(BS_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def get_pl_db_connection():
+    conn = sqlite3.connect(PL_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def convert_to_quarterly_from_period(data):
+    """Period情報を使って累計データを四半期ごとの差分に変換"""
+    if not data:
+        return []
+
+    def safe_num(x):
+        if x is None:
+            return None
+        try:
+            return float(x)
+        except Exception:
+            return None
+
+    metrics = ['netSales', 'operatingIncome', 'ordinaryIncome', 'netIncome']
+
+    # FiscalYearとPeriodでグループ化
+    from collections import defaultdict
+    groups = defaultdict(dict)
+
+    for item in data:
+        fiscal_year = item.get('fiscalYear')
+        period = item.get('period')
+
+        if not fiscal_year or not period:
+            continue
+
+        # Period から quarter番号を取得
+        period_map = {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4}
+        quarter = period_map.get(period)
+
+        if quarter is None:
+            continue
+
+        # 数値に変換（元データの累計値を保持）
+        parsed_item = {
+            'original': item,
+            'fiscalYear': fiscal_year,
+            'quarter': quarter,
+            'period': period
         }
+        for m in metrics:
+            parsed_item[m] = safe_num(item.get(m))
 
-        .stock-checkbox {background:#fff3e0;padding:12px;border-radius:8px;margin-top:15px;border-left:4px solid #ff9800;}
-        .stock-checkbox label {display:inline;color:#e65100;cursor:pointer;}
-        #loading {text-align:center;padding:40px;color:#666;}
-        .info-box {background:#e3f2fd;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #2196F3;}
-        .info-box p {margin:5px 0;color:#1565C0;}
-    </style>
-</head>
-<body>
-    <h1>財務データ分析ツール</h1>
+        groups[fiscal_year][quarter] = parsed_item
 
-    <div class="info-box">
-        <p><strong>横軸表示: 会計年度とクオーター（FY2023 Q1形式）</strong></p>
-        <p>株価は各決算日時点の終値を表示します。</p>
-    </div>
+    result = []
 
-    <div class="controls">
-        <label for="codeInput">証券コードで検索:</label>
-        <input type="text" id="codeInput" placeholder="例: 9504" />
-        <button id="searchButton">検索</button>
+    # 各年度ごとに処理
+    for fiscal_year in sorted(groups.keys()):
+        year_data = groups[fiscal_year]
 
-        <label for="companySelect" style="margin-top:20px;">または会社を選択:</label>
-        <select id="companySelect"><option value="">読み込み中...</option></select>
-    </div>
+        for quarter in [1, 2, 3, 4]:
+            if quarter not in year_data:
+                continue
 
-    <div class="tabs" id="mainTabs" style="display:none;">
-        <button class="tab active" onclick="switchTab('bs')">貸借対照表 (BS)</button>
-        <button class="tab" onclick="switchTab('pl')">損益計算書 (PL)</button>
-    </div>
+            current = year_data[quarter]
+            out = dict(current['original'])
 
-    <!-- BS -->
-    <div id="bs-content" class="tab-content active">
-        <div class="controls">
-            <label>表示する指標:</label>
-            <div class="metric-selector" id="bsMetrics">
-                <button class="metric-button active" data-metric="assets">総資産</button>
-                <button class="metric-button" data-metric="netAssets">純資産</button>
-                <button class="metric-button" data-metric="currentAssets">流動資産</button>
-                <button class="metric-button" data-metric="cash">現金・預金</button>
-                <button class="metric-button" data-metric="ppe">有形固定資産</button>
-                <button class="metric-button" data-metric="retainedEarnings">利益剰余金</button>
-            </div>
-            <div class="stock-checkbox">
-                <label><input type="checkbox" id="showStockInBS" checked> 株価を重ねて表示</label>
-            </div>
-        </div>
-        <div class="chart-container">
-            <canvas id="bsChart" height="350"></canvas>
-        </div>
-    </div>
+            # Q1はそのまま、Q2以降は差分計算（元データの累計値を使用）
+            if quarter == 1:
+                # Q1はそのまま使用
+                for m in metrics:
+                    val = current.get(m)
+                    if val is not None and float(val).is_integer():
+                        out[m] = int(val)
+                    else:
+                        out[m] = val
+            else:
+                # Q2, Q3, Q4は前のクオーターとの差分（元データ同士で計算）
+                prev_quarter = quarter - 1
 
-    <!-- PL -->
-    <div id="pl-content" class="tab-content">
-        <div class="controls">
-            <label>表示する指標:</label>
-            <div class="metric-selector" id="plMetrics">
-                <button class="metric-button active" data-metric="netSales">売上高</button>
-                <button class="metric-button" data-metric="operatingIncome">営業利益</button>
-                <button class="metric-button" data-metric="ordinaryIncome">経常利益</button>
-                <button class="metric-button" data-metric="netIncome">純利益</button>
-            </div>
-            <div class="stock-checkbox">
-                <label><input type="checkbox" id="showStockInPL" checked> 株価を重ねて表示</label>
-            </div>
-        </div>
-        <div class="chart-container">
-            <canvas id="plChart" height="350"></canvas>
-        </div>
-    </div>
+                if prev_quarter in year_data:
+                    previous = year_data[prev_quarter]
+                    for m in metrics:
+                        cur = current.get(m)  # 元データの累計値
+                        prev = previous.get(m)  # 元データの累計値
 
-    <div id="loading" style="display:none;">データを読み込んでいます...</div>
+                        if cur is None or prev is None:
+                            out[m] = None
+                        else:
+                            out[m] = cur - prev
+                            if out[m] is not None and float(out[m]).is_integer():
+                                out[m] = int(out[m])
+                else:
+                    # 前のクオーターがない場合はNone
+                    for m in metrics:
+                        out[m] = None
 
-    <script>
-        const metricNames = {
-            assets: '総資産', netAssets: '純資産', currentAssets: '流動資産',
-            cash: '現金・預金', ppe: '有形固定資産', retainedEarnings: '利益剰余金',
-            netSales: '売上高', operatingIncome: '営業利益',
-            ordinaryIncome: '経常利益', netIncome: '純利益'
-        };
+            out['_fiscalYear'] = fiscal_year
+            out['_quarter'] = quarter
+            # クオーター表記に変換: 19 Q1 形式（短縮）
+            year_short = str(fiscal_year)[-2:]
+            out['term'] = f"{year_short} {period}"
+            # publicDayも継承
+            if 'publicDay' in current['original']:
+                out['publicDay'] = current['original']['publicDay']
+            result.append(out)
 
-        let bsChart = null, plChart = null;
+    # FiscalYearとQuarterでソート
+    result.sort(key=lambda x: (x.get('_fiscalYear', 0), x.get('_quarter', 0)))
 
-        async function loadCompanies() {
-            const select = document.getElementById('companySelect');
-            const loading = document.getElementById('loading');
-            try {
-                loading.style.display = 'block';
-                const resp = await fetch('/api/companies');
-                if (!resp.ok) throw new Error('Network error');
-                const companies = await resp.json();
+    return result
 
-                select.innerHTML = '<option value="">会社を選択してください</option>';
-                companies.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.code;
-                    opt.textContent = `${c.name} (${c.code})`;
-                    select.appendChild(opt);
-                });
 
-                select.onchange = async () => {
-                    if (select.value) {
-                        const comp = companies.find(c => c.code === select.value);
-                        await loadAllData(comp.code, comp.name);
-                    }
-                };
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-                document.getElementById('searchButton').onclick = searchByCode;
-                loading.style.display = 'none';
-            } catch (e) {
-                console.error(e);
-                alert('会社リスト取得失敗');
-                loading.style.display = 'none';
-            }
-        }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-            document.getElementById(`${tab}-content`).classList.add('active');
-        }
+@app.route('/api/companies')
+def get_companies():
+    companies_dict = {}
 
-        async function loadAllData(code, name) {
-            document.getElementById('mainTabs').style.display = 'flex';
-            document.getElementById('loading').style.display = 'block';
-            try {
-                const [bsResp, plResp, stockResp] = await Promise.all([
-                    fetch(`/api/bs-data/${encodeURIComponent(name)}`),
-                    fetch(`/api/pl-data/${code}`),
-                    fetch(`/api/stock-price/${code}`)
-                ]);
+    # BSから取得
+    try:
+        conn = get_bs_db_connection()
+        rows = conn.execute('SELECT DISTINCT CompanyName, Code FROM BS WHERE Code IS NOT NULL').fetchall()
+        for row in rows:
+            code = row['Code']
+            companies_dict[code] = {'name': row['CompanyName'], 'code': code, 'hasBS': True, 'hasPL': False}
+        conn.close()
+    except Exception as e:
+        print(f"BS会社リスト取得エラー: {e}")
 
-                const bs = await bsResp.json();
-                const pl = await plResp.json();
-                const stockData = await stockResp.json();
+    # PLから取得
+    try:
+        conn = get_pl_db_connection()
+        rows = conn.execute('SELECT DISTINCT Code FROM PL WHERE Code IS NOT NULL').fetchall()
+        for row in rows:
+            code = row['Code']
+            if code in companies_dict:
+                companies_dict[code]['hasPL'] = True
+            else:
+                companies_dict[code] = {'name': f'Company {code}', 'code': code, 'hasBS': False, 'hasPL': True}
+        conn.close()
+    except Exception as e:
+        print(f"PL会社リスト取得エラー: {e}")
 
-                console.log('BSデータ:', bs);
-                console.log('PLデータ:', pl);
-                console.log('株価データ:', stockData);
+    return jsonify(list(companies_dict.values()))
 
-                renderChart('bs', bs, stockData);
-                renderChart('pl', pl, stockData);
-            } catch (e) {
-                console.error(e);
-                alert('データ取得失敗');
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
 
-        function renderChart(type, data, stockData) {
-            const ctx = document.getElementById(`${type}Chart`).getContext('2d');
-            const buttons = document.querySelectorAll(`#${type}Metrics .metric-button`);
-            let activeMetric = buttons[0].dataset.metric;
-            const checkbox = document.getElementById(`showStockIn${type.toUpperCase()}`);
+@app.route('/api/bs-data/<company_name>')
+def get_bs_data(company_name):
+    """BSデータを取得（Period/FiscalYearを使用、PublicDayベース）"""
+    conn = get_bs_db_connection()
+    rows = conn.execute('''
+        SELECT 
+            PublicDay,
+            Period,
+            FiscalYear,
+            Assets,
+            NetAssets,
+            CurrentAssets,
+            COALESCE(CashAndDeposits, CashAndCashEquivalent, 0) AS cash,
+            PropertyPlantAndEquipment AS ppe,
+            RetainedEarnings
+        FROM BS 
+        WHERE CompanyName = ?
+        ORDER BY FiscalYear, Period
+    ''', (company_name,)).fetchall()
+    conn.close()
 
-            buttons.forEach(btn => btn.onclick = () => {
-                buttons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                activeMetric = btn.dataset.metric;
-                drawChart();
-            });
-            checkbox.onchange = drawChart;
+    data = []
+    period_map = {'Q1': 1, 'Q2': 2, 'Q3': 3, 'Q4': 4}
+    
+    for row in rows:
+        fiscal_year = row['FiscalYear']
+        period = row['Period']
+        public_day = row['PublicDay']
+        
+        # termフィールドを生成（PLと同じ形式）
+        if fiscal_year and period:
+            # 短縮形式: FY2019 → 19
+            year_short = str(fiscal_year)[-2:]
+            term_label = f"{year_short} {period}"
+        else:
+            # Period/FiscalYearがない場合はスキップ
+            continue
+        
+        data.append({
+            'term': term_label,
+            'period': period,
+            'fiscalYear': fiscal_year,
+            'publicDay': public_day,
+            'assets': row['Assets'],
+            'netAssets': row['NetAssets'],
+            'currentAssets': row['CurrentAssets'],
+            'cash': row['cash'],
+            'ppe': row['ppe'],
+            'retainedEarnings': row['RetainedEarnings']
+        })
+    
+    # FiscalYearとPeriodでソート
+    data.sort(key=lambda x: (x.get('fiscalYear') or 0, period_map.get(x.get('period'), 0)))
+    
+    print(f"BSデータ取得: {len(data)}件")
+    if len(data) > 0:
+        print(f"最初のデータ: {data[0]}")
+    
+    return jsonify(data)
 
-            function drawChart() {
-                if (type === 'bs' && bsChart) { bsChart.destroy(); bsChart = null; }
-                if (type === 'pl' && plChart) { plChart.destroy(); plChart = null; }
 
-                const label = metricNames[activeMetric];
+@app.route('/api/pl-data/<code>')
+def get_pl_data(code):
+    """PLデータを取得し、Periodを使って四半期ごとの差分に変換"""
+    try:
+        conn = get_pl_db_connection()
+        rows = conn.execute('''
+            SELECT 
+                PublicDay,
+                Period,
+                FiscalYear,
+                NetSales,
+                OperatingIncome,
+                OrdinaryIncome,
+                NetIncome,
+                RevenueIFRS,
+                OperatingProfitLossIFRS,
+                ProfitLossIFRS
+            FROM PL 
+            WHERE Code = ?
+            ORDER BY FiscalYear, Period
+        ''', (code,)).fetchall()
+        conn.close()
 
-                // 株価表示の有無で処理を分岐
-                if (checkbox.checked && stockData && stockData.length > 0) {
-                    // 株価表示ON: 日付ベースで表示
+        data = []
+        for row in rows:
+            data.append({
+                'term': row['PublicDay'][:7] if row['PublicDay'] else None,
+                'period': row['Period'],
+                'fiscalYear': row['FiscalYear'],
+                'publicDay': row['PublicDay'],
+                'netSales': row['NetSales'] or row['RevenueIFRS'],
+                'operatingIncome': row['OperatingIncome'] or row['OperatingProfitLossIFRS'],
+                'ordinaryIncome': row['OrdinaryIncome'],
+                'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
+            })
 
-                    // 財務データ: PublicDayの位置のみにプロット（日付順にソート）
-                    const financialData = data
-                        .filter(d => d.publicDay && d[activeMetric] != null)
-                        .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
-                        .map(d => ({
-                            x: d.publicDay,
-                            y: d[activeMetric],
-                            label: d.term  // クオーターラベルを保持
-                        }));
+        converted_data = convert_to_quarterly_from_period(data)
+        print(f"PLデータ変換: {len(data)}件 → {len(converted_data)}件（四半期ごと）")
+        if len(converted_data) > 0:
+            print(f"最初のPLデータ: {converted_data[0]}")
+        return jsonify(converted_data)
 
-                    // 株価データ: 全日次データ
-                    const stockChartData = stockData.map(s => ({
-                        x: s.date,
-                        y: s.price
-                    }));
+    except Exception as e:
+        print(f"PLデータ取得エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
-                    console.log('財務データ件数:', financialData.length);
 
-                    // 日付範囲を取得
-                    const allDatesInData = [
-                        ...financialData.map(d => d.x),
-                        ...stockChartData.map(d => d.x)
-                    ].sort();
-                    const minDate = allDatesInData[0];
-                    const maxDate = allDatesInData[allDatesInData.length - 1];
+@app.route('/api/stock-price/<code>')
+def get_stock_price(code):
+    """株価データを日次で取得"""
+    try:
+        ticker = f"{code}.T"
+        stock = yf.Ticker(ticker)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=10 * 365)
+        hist = stock.history(start=start_date, end=end_date, interval="1d")
 
-                    const datasets = [
-                        {
-                            label,
-                            data: financialData,
-                            borderColor: '#2196F3',
-                            backgroundColor: '#2196F3',
-                            yAxisID: 'y',
-                            spanGaps: false,
-                            fill: false,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            datalabels: {
-                                display: true,
-                                align: 'top',
-                                offset: 8,
-                                color: '#2196F3',
-                                font: {
-                                    size: 10,
-                                    weight: 'bold'
-                                },
-                                formatter: function(value, context) {
-                                    // 各点のクオーターラベルを表示
-                                    return context.dataset.data[context.dataIndex].label || '';
-                                }
-                            }
-                        },
-                        {
-                            label: '株価（円）',
-                            data: stockChartData,
-                            borderColor: '#FF9800',
-                            backgroundColor: 'transparent',
-                            yAxisID: 'y1',
-                            spanGaps: true,
-                            fill: false,
-                            pointRadius: 0,
-                            borderWidth: 1.5,
-                            datalabels: {
-                                display: false
-                            }
-                        }
-                    ];
+        if hist.empty:
+            return jsonify([])
 
-                    const chart = new Chart(ctx, {
-                        type: 'line',
-                        data: { datasets },
-                        plugins: [ChartDataLabels],
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                legend: { position: 'top' },
-                                datalabels: {
-                                    display: false  // デフォルトはオフ（各datasetで個別設定）
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        title: function(context) {
-                                            const dataPoint = context[0].raw;
-                                            if (dataPoint && dataPoint.label) {
-                                                return `${dataPoint.label} (${dataPoint.x})`;
-                                            }
-                                            return context[0].label;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    type: 'time',
-                                    min: minDate,
-                                    max: maxDate,
-                                    time: {
-                                        unit: 'month',
-                                        displayFormats: {
-                                            month: 'yyyy/MM'
-                                        },
-                                        tooltipFormat: 'yyyy-MM-dd'
-                                    },
-                                    title: { display: true, text: '日付' },
-                                    ticks: {
-                                        maxRotation: 45,
-                                        minRotation: 45
-                                    }
-                                },
-                                y: {
-                                    position: 'left',
-                                    title: { display: true, text: '金額 (百万円)' }
-                                },
-                                y1: {
-                                    position: 'right',
-                                    grid: { drawOnChartArea: false },
-                                    title: { display: true, text: '株価 (円)' }
-                                }
-                            }
-                        }
-                    });
+        # 日次データを配列形式で返す
+        data = []
+        for date, row in hist.iterrows():
+            data.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'price': round(float(row['Close']), 2)
+            })
 
-                    if (type === 'bs') bsChart = chart;
-                    else plChart = chart;
+        print(f"株価データ取得: {len(data)}件（日次）")
+        return jsonify(data)
 
-                } else {
-                    // 株価表示OFF: クオーター表記のまま
-                    const labels = data.map(d => d.term);
-                    const values = data.map(d => d[activeMetric] ?? null);
+    except Exception as e:
+        print(f"株価取得エラー ({code}): {e}")
+        return jsonify([]), 500
 
-                    const datasets = [{
-                        label,
-                        data: values,
-                        borderColor: '#2196F3',
-                        backgroundColor: '#2196F3',
-                        yAxisID: 'y',
-                        spanGaps: true,
-                        fill: false,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }];
 
-                    const chart = new Chart(ctx, {
-                        type: 'line',
-                        data: { labels, datasets },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                legend: { position: 'top' }
-                            },
-                            scales: {
-                                x: {
-                                    type: 'category',
-                                    title: { display: true, text: '会計年度・クオーター' },
-                                    ticks: {
-                                        maxRotation: 45,
-                                        minRotation: 45
-                                    }
-                                },
-                                y: {
-                                    position: 'left',
-                                    title: { display: true, text: '金額 (百万円)' }
-                                }
-                            }
-                        }
-                    });
+@app.route('/api/company/<code>')
+def get_company_by_code(code):
+    conn = get_bs_db_connection()
+    row = conn.execute('SELECT DISTINCT CompanyName FROM BS WHERE Code = ? LIMIT 1', (code,)).fetchone()
+    conn.close()
+    if row:
+        return jsonify({'name': row['CompanyName'], 'code': code})
+    return jsonify({'error': 'Not found'}), 404
 
-                    if (type === 'bs') bsChart = chart;
-                    else plChart = chart;
-                }
-            }
-            drawChart();
-        }
 
-        async function searchByCode() {
-            const code = document.getElementById('codeInput').value.trim();
-            if (!code) return alert('証券コードを入力してください');
-            try {
-                const resp = await fetch('/api/companies');
-                const companies = await resp.json();
-                const comp = companies.find(c => c.code === code);
-                if (!comp) return alert('会社が見つかりません');
-                document.getElementById('companySelect').value = code;
-                await loadAllData(code, comp.name);
-            } catch (e) {
-                alert('検索失敗');
-            }
-        }
+@app.route('/api/financial-summary/<code>')
+def get_financial_summary(code):
+    try:
+        conn_bs = get_bs_db_connection()
+        company = conn_bs.execute('SELECT DISTINCT CompanyName FROM BS WHERE Code = ? LIMIT 1', (code,)).fetchone()
+        if not company:
+            return jsonify({'error': 'Company not found'}), 404
 
-        window.addEventListener('DOMContentLoaded', loadCompanies);
-    </script>
-</body>
-</html>
+        bs_rows = conn_bs.execute('SELECT EndDay, Assets, NetAssets FROM BS WHERE Code = ? ORDER BY EndDay',
+                                  (code,)).fetchall()
+        conn_bs.close()
+
+        conn_pl = get_pl_db_connection()
+        pl_rows = conn_pl.execute(
+            'SELECT PublicDay, NetSales, OperatingIncome FROM PL WHERE Code = ? ORDER BY PublicDay', (code,)).fetchall()
+        conn_pl.close()
+
+        return jsonify({
+            'company': {'name': company['CompanyName'], 'code': code},
+            'bs': [{'date': r['EndDay'][:7], 'assets': r['Assets'], 'netAssets': r['NetAssets']} for r in bs_rows],
+            'pl': [{'date': r['PublicDay'][:7], 'netSales': r['NetSales'], 'operatingIncome': r['OperatingIncome']}
+                   for r in pl_rows]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+if __name__ == '__main__':
+    bs_exists = os.path.exists(BS_DB_PATH)
+    pl_exists = os.path.exists(PL_DB_PATH)
+
+    if bs_exists:
+        print(f"✓ BSデータベース: {BS_DB_PATH}")
+    else:
+        print(f"⚠ BS DB なし: {BS_DB_PATH}")
+
+    if pl_exists:
+        print(f"✓ PLデータベース: {PL_DB_PATH}")
+    else:
+        print(f"⚠ PL DB なし: {PL_DB_PATH}")
+
+    if bs_exists or pl_exists:
+        print("\nFlaskサーバー起動中...")
+        app.run(debug=True, port=5001)
+    else:
+        print("エラー: データベースが見つからないため起動できません")
