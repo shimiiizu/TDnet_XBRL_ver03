@@ -227,16 +227,13 @@
 
                     // クオーターラベルのマッピング作成
                     const quarterLabels = {};
-                    const quarterDates = [];
                     data.forEach(d => {
                         if (d.publicDay && d.term) {
                             quarterLabels[d.publicDay] = d.term;
-                            quarterDates.push(d.publicDay);
                         }
                     });
 
                     console.log('クオーターラベル:', quarterLabels);
-                    console.log('クオーター日付配列:', quarterDates);
                     console.log('財務データ件数:', financialData.length);
 
                     // 日付範囲を取得
@@ -246,6 +243,9 @@
                     ].sort();
                     const minDate = allDatesInData[0];
                     const maxDate = allDatesInData[allDatesInData.length - 1];
+
+                    // クオーターラベル表示用の配列を作成（クロージャで保持）
+                    const quarterDatesForTicks = Object.keys(quarterLabels).sort();
 
                     const datasets = [
                         {
@@ -298,23 +298,35 @@
                                     min: minDate,
                                     max: maxDate,
                                     time: {
-                                        tooltipFormat: 'yyyy-MM-dd'
+                                        tooltipFormat: 'yyyy-MM-dd',
+                                        unit: 'month'
                                     },
                                     title: { display: true, text: '会計年度・クオーター' },
-                                    afterBuildTicks: (axis) => {
-                                        // 財務データの日付を目盛りとして強制設定
-                                        axis.ticks = quarterDates.map(dateStr => ({
-                                            value: new Date(dateStr).getTime()
-                                        }));
-                                    },
                                     ticks: {
-                                        callback: (value) => {
-                                            // valueからdate文字列を取得してクオーターラベルを返す
+                                        source: 'auto',
+                                        callback: function(value, index, ticks) {
                                             const dateStr = new Date(value).toISOString().split('T')[0];
-                                            return quarterLabels[dateStr] || '';
+
+                                            // 完全一致するクオーターラベルがあれば返す
+                                            if (quarterLabels[dateStr]) {
+                                                return quarterLabels[dateStr];
+                                            }
+
+                                            // 近い日付を探す（±5日以内）
+                                            for (const qDate of quarterDatesForTicks) {
+                                                const diff = Math.abs(new Date(qDate) - new Date(value));
+                                                const daysDiff = diff / (1000 * 60 * 60 * 24);
+                                                if (daysDiff <= 5) {
+                                                    return quarterLabels[qDate];
+                                                }
+                                            }
+
+                                            // クオーターでない目盛りは非表示
+                                            return '';
                                         },
                                         maxRotation: 45,
-                                        minRotation: 45
+                                        minRotation: 45,
+                                        autoSkip: false
                                     }
                                 },
                                 y: {
