@@ -229,13 +229,14 @@
                     const quarterLabels = {};
                     const quarterDates = [];
                     data.forEach(d => {
-                        if (d.publicDay) {
+                        if (d.publicDay && d.term) {
                             quarterLabels[d.publicDay] = d.term;
                             quarterDates.push(d.publicDay);
                         }
                     });
 
                     console.log('クオーターラベル:', quarterLabels);
+                    console.log('クオーター日付配列:', quarterDates);
                     console.log('財務データ件数:', financialData.length);
 
                     // 日付範囲を取得
@@ -302,11 +303,18 @@
                                     title: { display: true, text: '会計年度・クオーター' },
                                     afterBuildTicks: function(axis) {
                                         // 財務データの日付を目盛りとして設定
-                                        axis.ticks = quarterDates.sort().map(dateStr => {
-                                            return {
-                                                value: new Date(dateStr).getTime()
-                                            };
-                                        });
+                                        if (quarterDates.length > 0) {
+                                            axis.ticks = quarterDates.sort().map(dateStr => {
+                                                const timestamp = new Date(dateStr).getTime();
+                                                if (isNaN(timestamp)) {
+                                                    console.error('無効な日付:', dateStr);
+                                                    return null;
+                                                }
+                                                return {
+                                                    value: timestamp
+                                                };
+                                            }).filter(t => t !== null);
+                                        }
                                     },
                                     ticks: {
                                         callback: function(value, index, ticks) {
