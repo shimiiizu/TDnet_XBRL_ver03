@@ -1,7 +1,7 @@
 # system/xbrl_system.py
 
 from bin.processor.company_processor import CompanyDataProcessor
-from bin.config import Config
+from bin.config.config import Config
 
 
 class XBRLProcessingSystem:

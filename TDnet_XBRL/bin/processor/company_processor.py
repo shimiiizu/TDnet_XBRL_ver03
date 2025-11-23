@@ -4,7 +4,7 @@ from typing import List
 
 from ..fileio.file_manager import FileManager
 from ..parser.unified_parser import UnifiedXBRLParser
-from bin.config import Config
+from bin.config.config import Config
 
 
 class CompanyDataProcessor:

@@ -1,7 +1,7 @@
 # main.py
 
-from config import Config
-from xbrl_system import XBRLProcessingSystem
+from bin.config.config import Config
+from bin.system.xbrl_system import XBRLProcessingSystem
 
 def main():
     """
