@@ -40,7 +40,7 @@ def _get_contextref(file_name):
     """ファイル名からcontextrefを決定"""
     if 'ac' in file_name:
         return "CurrentYearDuration"
-    elif 'qcpl13' in file_name:
+    elif 'qcpl13' in file_name or 'scpl27' in file_name:
         return "CurrentYTDDuration"
     elif 'qcpl23' in file_name:
         return "CurrentQuarterDuration"

@@ -46,26 +46,34 @@ class PlDBInserter:
     # ============================================================
     def detect_quarter_from_html(self):
         """
-        IXBRL（HTML）本文から「当第○四半期」を抽出して四半期を返す。
+        IXBRL（HTML）本文から四半期情報を抽出して返す。
+        - 「当第○四半期」→ Q1〜Q4
+        - 「当中間」→ Q2
         見つからなければ 'Unknown'。
         """
         try:
             with open(self.pl_file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 html_text = f.read()
 
+            # パターン1: 「当中間」を検出 → Q2
+            if re.search(r'当\s*中間', html_text):
+                return "Q2"
+
+            # パターン2: 「当第○四半期」を検出
             m = re.search(r'当第\s*([０-９0-9])\s*四半期', html_text)
 
             if m:
                 q_str = m.group(1)
+                # 全角数字を半角に変換
                 q_str = q_str.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
                 q = int(q_str)
                 if 1 <= q <= 4:
                     return f"Q{q}"
+
         except Exception as e:
             print(f"四半期判定エラー: {e}")
 
         return "Unknown"
-
     # ============================================================
     # 期間情報抽出（期間終了日と本文四半期）
     # ============================================================
@@ -107,7 +115,7 @@ class PlDBInserter:
             # 🔥 HTML本文から四半期を最優先で取得
             period = self.detect_quarter_from_html()
 
-            # 🔥 年度は単純に終了日の年を採用（会計年度推定は廃止）
+            # 🔥 年度は単純に終了日の年を採用
             fiscal_year = period_end_date.year
 
             print(f"期間情報: 終了日={period_end_date}, 四半期={period}, 年度={fiscal_year}")
@@ -152,7 +160,8 @@ class PlDBInserter:
                     OperatingIncome REAL,
                     OrdinaryIncome REAL,
                     NetIncome REAL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    EPS REAL
                 )
             ''')
 
@@ -220,7 +229,7 @@ class PlDBInserter:
 # ============================================================
 if __name__ == '__main__':
     test_files = [
-        r'E:\Zip_files\2471\0102010-qcpl13-tse-qcediffr-24710-2025-08-31-01-2025-10-14-ixbrl.htm'
+        r'E:\Zip_files\2471\0102010-scpl27-tse-scediffr-24710-2025-05-31-01-2025-07-11-ixbrl.htm'
     ]
 
     for pl_file_path in test_files:
