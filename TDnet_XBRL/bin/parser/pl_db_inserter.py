@@ -35,7 +35,7 @@ class PlDBInserter:
 
         # データベースパス
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        db_dir = os.path.join(current_dir, '..', 'db')
+        db_dir = os.path.join(current_dir, '../..', 'db')
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
             print(f'データベースディレクトリを作成しました: {db_dir}')

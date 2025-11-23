@@ -1,0 +1,94 @@
+# parser/unified_parser.py
+
+from pathlib import Path
+from ..parser.base_parser import XBRLParser
+
+
+class UnifiedXBRLParser(XBRLParser):
+    """
+    BS / PL の両方に対応した統合 XBRL パーサー。
+    ファイル名から BS/PL を自動判定し、
+    正しい recorder / inserter を呼び出す責務を持つ。
+    """
+
+    def parse(self, file_path: str):
+        """
+        XBRL ファイルをパース（メモリ上にデータ抽出）
+        """
+        statement_type = self._detect_statement_type(file_path)
+
+        if statement_type == "bs":
+            self._parse_bs(file_path)
+        elif statement_type == "pl":
+            self._parse_pl(file_path)
+        else:
+            raise ValueError(f"Unknown statement type: {file_path}")
+
+    def save_to_db(self, file_path: str):
+        """
+        パース済みデータを DB に保存
+        """
+        statement_type = self._detect_statement_type(file_path)
+
+        if statement_type == "bs":
+            self._save_bs_to_db(file_path)
+        elif statement_type == "pl":
+            self._save_pl_to_db(file_path)
+
+    # ===========================================================================
+    # 内部ロジック
+    # ===========================================================================
+
+    @staticmethod
+    def _detect_statement_type(file_path: str) -> str:
+        """
+        ファイル名から BS/PL を判別する。
+        """
+        name = Path(file_path).name.lower()
+
+        if "bs" in name or "balancesheet" in name:
+            return "bs"
+        if "pl" in name or "profitloss" in name:
+            return "pl"
+
+        return "unknown"
+
+    # -------------------------------
+    # BS
+    # -------------------------------
+
+    def _parse_bs(self, file_path: str):
+        """
+        BS（貸借対照表）をパース
+        """
+        from bs_recorder import BsRecoder
+        recorder = BsRecoder(file_path)
+        recorder.record_bs()
+
+    def _save_bs_to_db(self, file_path: str):
+        """
+        BS の抽出データを DB 保存
+        """
+        from bs_db_inserter import BsDBInserter
+        inserter = BsDBInserter(file_path)
+        inserter.insert_to_bs_db()
+
+    # -------------------------------
+    # PL
+    # -------------------------------
+
+    def _parse_pl(self, file_path: str):
+        """
+        PL（損益計算書）をパース
+        """
+        from pl_recorder import PlRecoder
+        recorder = PlRecoder(file_path)
+        recorder.record_pl()
+
+    def _save_pl_to_db(self, file_path: str):
+        """
+        PL の抽出データを DB 保存
+        """
+        from pl_db_inserter import PlDBInserter
+        inserter = PlDBInserter(file_path)
+        inserter.insert_to_pl_db()
