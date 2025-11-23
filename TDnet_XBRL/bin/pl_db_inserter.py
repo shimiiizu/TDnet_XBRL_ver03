@@ -1,15 +1,16 @@
 # ============================================================
-# このプログラムは、XBRL形式の損益計算書（PL）ファイルを解析し、
+# このプログラムは、XBRL形式（IXBRL含む）の損益計算書（PL）ファイルを解析し、
 # ・企業コード
-# ・決算期間（四半期・年度）
-# ・売上高、営業利益などの主要なPL項目（IFRS / 日本基準に対応）
-# を抽出して、ローカルSQLiteデータベース（PL_DB.db）へ登録するツールです。
+# ・ファイル名
+# ・開示日
+# ・四半期（本文の日本語「当第○四半期」を直接解析）
+# ・年度（期間終了日の年）
+# ・PLの主要項目（IFRS / 日本基準両対応）
+# を抽出してSQLiteデータベースへ登録するツールです。
 #
-# IFRS形式の場合: xbrl_pl_ifrs_parser を利用
-# 日本基準(JP GAAP)の場合: xbrl_pl_japan_gaap_parser を利用
-#
-# ファイル名から企業コード・開示日を取得し、
-# XBRL内の context / DocumentPeriodEndDate から期間情報も抽出します。
+# 四半期は必ず、HTML本文中の「当第○四半期」から取得し、
+# 判別できない場合は "Unknown" として登録します。
+# 企業コードからの会計年度推定は行いません。
 # ============================================================
 
 import sqlite3
@@ -41,91 +42,85 @@ class PlDBInserter:
         self.DB = os.path.join(db_dir, 'PL_DB.db')
         print(f'データベースパス: {self.DB}')
 
-    # =============================
-    # 補助関数：名前空間エスケープ
-    # =============================
-    def _escape_ns(self, ns_url):
-        return ns_url.replace('http://', 'http/').replace('/', '_')
+    # ============================================================
+    # HTML本文から四半期（Q1〜Q4）を抽出
+    # ============================================================
+    def detect_quarter_from_html(self):
+        """
+        IXBRL（HTML）本文から「当第○四半期」を抽出して四半期を返す。
+        見つからなければ 'Unknown'。
+        """
+        try:
+            with open(self.pl_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                html_text = f.read()
 
-    # =============================
-    # 補助関数：会計年度開始月
-    # =============================
-    def get_fiscal_start_month(self):
-        fiscal_end_month_map = {
-            '1301': 3,   # 極洋
-            '7203': 3,   # トヨタ
-            '9984': 3,   # ソフトバンク
-            '9501': 3,   # 東京電力
-            '9432': 9,   # NTT
-        }
-        end_month = fiscal_end_month_map.get(self.company_code, 3)
-        return (end_month % 12) + 1
+            m = re.search(r'当第\s*([０-９0-9])\s*四半期', html_text)
 
-    # =============================
-    # 期間情報抽出
-    # =============================
+            if m:
+                q_str = m.group(1)
+                q_str = q_str.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+                q = int(q_str)
+                if 1 <= q <= 4:
+                    return f"Q{q}"
+        except Exception as e:
+            print(f"四半期判定エラー: {e}")
+
+        return "Unknown"
+
+    # ============================================================
+    # 期間情報抽出（期間終了日と本文四半期）
+    # ============================================================
     def extract_period_info(self):
         try:
             tree = etree.parse(self.pl_file_path)
             root = tree.getroot()
-            namespaces = root.nsmap
 
             period_end_date = None
 
-            # 1. コンテキストから instant / endDate
+            # instant / endDate の取得
             for ctx in root.findall('.//{http://www.xbrl.org/2003/instance}context'):
-                ctx_id = ctx.get('id', '')
-                if re.search(r'CurrentQuarterInstant|CurrentYTDEnd|CurrentQuarterEnd|Instant', ctx_id, re.I):
-                    instant = ctx.find('.//{http://www.xbrl.org/2003/instance}instant')
-                    if instant is not None and instant.text and re.match(r'\d{4}-\d{2}-\d{2}', instant.text.strip()):
+                instant = ctx.find('.//{http://www.xbrl.org/2003/instance}instant')
+                if instant is not None and instant.text:
+                    try:
                         period_end_date = datetime.strptime(instant.text.strip(), '%Y-%m-%d').date()
                         break
-                    end_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
-                    if end_tag is not None and end_tag.text and re.match(r'\d{4}-\d{2}-\d{2}', end_tag.text.strip()):
+                    except:
+                        pass
+
+                end_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
+                if end_tag is not None and end_tag.text:
+                    try:
                         period_end_date = datetime.strptime(end_tag.text.strip(), '%Y-%m-%d').date()
                         break
+                    except:
+                        pass
 
-            # 2. DocumentPeriodEndDate
-            if period_end_date is None:
-                for ns_key, ns_url in namespaces.items():
-                    if 'jpcrp' in ns_url.lower():
-                        tag_name = f'{{{{{self._escape_ns(ns_url)}}}}}DocumentPeriodEndDate'
-                        elem = root.find(f'.//{tag_name}')
-                        if elem is not None and elem.text and re.match(r'\d{4}-\d{2}-\d{2}', elem.text.strip()):
-                            period_end_date = datetime.strptime(elem.text.strip(), '%Y-%m-%d').date()
-                            break
-
-            # 3. ファイル名から
+            # ファイル名 fallback
             if period_end_date is None:
                 m = re.search(r'(\d{4}-\d{2}-\d{2})', self.file_name)
                 if m:
                     period_end_date = datetime.strptime(m.group(1), '%Y-%m-%d').date()
 
             if not period_end_date:
-                print(f'警告: 期間終了日を特定できませんでした - {self.file_name}')
-                return None, None, None
+                print(f"警告: 期間終了日が取得できませんでした: {self.file_name}")
+                return "Unknown", None, None
 
-            # 年度・四半期判定
-            fiscal_start_month = self.get_fiscal_start_month()
+            # 🔥 HTML本文から四半期を最優先で取得
+            period = self.detect_quarter_from_html()
+
+            # 🔥 年度は単純に終了日の年を採用（会計年度推定は廃止）
             fiscal_year = period_end_date.year
-            if period_end_date.month < fiscal_start_month:
-                fiscal_year -= 1
 
-            month_in_fiscal = (period_end_date.month - fiscal_start_month + 12) % 12 + 1
-            period = 'Q1' if month_in_fiscal <= 3 else 'Q2' if month_in_fiscal <= 6 else 'Q3' if month_in_fiscal <= 9 else 'Q4'
-
-            print(f'期間情報: 終了日={period_end_date}, {period}, 年度: {fiscal_year}')
+            print(f"期間情報: 終了日={period_end_date}, 四半期={period}, 年度={fiscal_year}")
             return period, fiscal_year, period_end_date
 
         except Exception as e:
             print(f'期間情報抽出エラー: {e}')
-            import traceback
-            traceback.print_exc()
-            return None, None, None
+            return "Unknown", None, None
 
-    # =============================
+    # ============================================================
     # DB挿入（重複チェックなし・常に追加）
-    # =============================
+    # ============================================================
     def insert_to_pl_db(self):
         try:
             plparser = PlFilenameParser(self.pl_file_path)
@@ -135,14 +130,11 @@ class PlDBInserter:
 
             # 期間情報取得
             period, fiscal_year, _ = self.extract_period_info()
-            if period is None or fiscal_year is None:
-                print(f'スキップ: 期間情報が取得できませんでした - {filename}')
-                return
 
             conn = sqlite3.connect(self.DB)
             cursor = conn.cursor()
 
-            # テーブル作成（初回のみ）
+            # テーブル作成
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS PL (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -165,7 +157,7 @@ class PlDBInserter:
                 )
             ''')
 
-            inserted = True
+            inserted = False
 
             # --- IFRS ---
             if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower():
@@ -186,7 +178,6 @@ class PlDBInserter:
                 ''', (code, filename, publicday, period, fiscal_year,
                       revenueifrs, sga_ifrs, op_ifrs, profit_ifrs, eps_ifrs))
 
-                print(f'IFRS PLデータを登録: {code} | {period} | {fiscal_year}年度')
                 inserted = True
 
             # --- 日本GAAP ---
@@ -208,7 +199,6 @@ class PlDBInserter:
                 ''', (code, filename, publicday, period, fiscal_year,
                       netsales, sga, op, ordinary, netincome))
 
-                print(f'日本GAAP PLデータを登録: {code} | {period} | {fiscal_year}年度 | 売上={netsales}')
                 inserted = True
 
             if inserted:
@@ -226,14 +216,12 @@ class PlDBInserter:
                 conn.close()
 
 
-# =============================
-# テスト実行（複数ファイル対応）
-# =============================
+# ============================================================
+# テスト実行
+# ============================================================
 if __name__ == '__main__':
     test_files = [
-        #r'E:\Zip_files\1301\0501000-anpl01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
         r'E:\Zip_files\2471\0102010-qcpl13-tse-qcediffr-24710-2025-08-31-01-2025-10-14-ixbrl.htm'
-        # 複数追加可能
     ]
 
     for pl_file_path in test_files:
@@ -241,7 +229,4 @@ if __name__ == '__main__':
             print(f'\n{"="*60}')
             print(f'処理開始: {pl_file_path}')
             print(f'{"="*60}')
-            inserter = PlDBInserter(pl_file_path)
-            inserter.insert_to_pl_db()
-        else:
-            print(f'ファイルが見つかりません: {pl_file_path}')
+            inserter
