@@ -298,33 +298,36 @@
                                     min: minDate,
                                     max: maxDate,
                                     time: {
-                                        tooltipFormat: 'yyyy-MM-dd'
+                                        tooltipFormat: 'yyyy-MM-dd',
+                                        unit: 'month'
                                     },
                                     title: { display: true, text: '会計年度・クオーター' },
-                                    afterBuildTicks: function(axis) {
-                                        // 財務データの日付を目盛りとして設定
-                                        if (quarterDates.length > 0) {
-                                            axis.ticks = quarterDates.sort().map(dateStr => {
-                                                const timestamp = new Date(dateStr).getTime();
-                                                if (isNaN(timestamp)) {
-                                                    console.error('無効な日付:', dateStr);
-                                                    return null;
-                                                }
-                                                return {
-                                                    value: timestamp
-                                                };
-                                            }).filter(t => t !== null);
-                                        }
-                                    },
                                     ticks: {
                                         callback: function(value, index, ticks) {
                                             // valueからdate文字列を取得してクオーターラベルを返す
                                             const dateStr = new Date(value).toISOString().split('T')[0];
-                                            return quarterLabels[dateStr] || '';
+                                            const label = quarterLabels[dateStr];
+                                            if (label) {
+                                                return label;
+                                            }
+
+                                            // 近い日付を探す（±3日）
+                                            for (let offset = 1; offset <= 3; offset++) {
+                                                const d1 = new Date(value);
+                                                d1.setDate(d1.getDate() - offset);
+                                                const str1 = d1.toISOString().split('T')[0];
+                                                if (quarterLabels[str1]) return quarterLabels[str1];
+
+                                                const d2 = new Date(value);
+                                                d2.setDate(d2.getDate() + offset);
+                                                const str2 = d2.toISOString().split('T')[0];
+                                                if (quarterLabels[str2]) return quarterLabels[str2];
+                                            }
+
+                                            return '';
                                         },
                                         maxRotation: 45,
-                                        minRotation: 45,
-                                        autoSkip: false
+                                        minRotation: 45
                                     }
                                 },
                                 y: {
