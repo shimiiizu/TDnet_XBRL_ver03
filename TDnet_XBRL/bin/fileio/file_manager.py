@@ -20,7 +20,7 @@ class FileManager:
         """
         指定フォルダ内のファイル削除（zipなど）
         """
-        from bin import files_deleter
+        from bin.fileio import files_deleter
         files_deleter.delete_zip_files(str(folder))
 
     @staticmethod
@@ -55,7 +55,7 @@ class FileManager:
         """
         Zipファイルを source → destination に移動
         """
-        from bin import zipfile_mover
+        from bin.fileio import zipfile_mover
         zipfile_mover.move_zipfiles(str(source), str(destination))
 
     @staticmethod
@@ -63,7 +63,7 @@ class FileManager:
         """
         指定ディレクトリ内のすべてのZipを解凍
         """
-        from bin import unzipper
+        from bin.fileio import unzipper
         unzipper.unzip_all_files(str(folder))
 
     # ===========================================================================
