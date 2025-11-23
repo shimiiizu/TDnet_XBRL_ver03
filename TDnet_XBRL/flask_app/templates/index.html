@@ -374,22 +374,7 @@
                         spanGaps: true,
                         fill: false,
                         pointRadius: 5,
-                        pointHoverRadius: 7,
-                        pointBackgroundColor: function(context) {
-                            // Q4のみ赤色
-                            const labelValue = labels[context.dataIndex];
-                            if (labelValue && labelValue.includes('.Q4')) {
-                                return '#F44336';
-                            }
-                            return '#2196F3';
-                        },
-                        pointBorderColor: function(context) {
-                            const labelValue = labels[context.dataIndex];
-                            if (labelValue && labelValue.includes('.Q4')) {
-                                return '#F44336';
-                            }
-                            return '#2196F3';
-                        }
+                        pointHoverRadius: 7
                     }];
 
                     const chart = new Chart(ctx, {
