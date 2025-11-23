@@ -1,4 +1,5 @@
-import files_deleter as rmv
+from bin import files_deleter as rmv
+
 
 def delete_all_files(folder_path):
     rmv.delete_zip_files(folder_path)

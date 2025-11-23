@@ -11,5 +11,5 @@ def read_csv(file_path):
 
 
 if __name__ == '__main__':
-    file_path = '../../config/code_list.csv'
+    file_path = '../config/code_list.csv'
     print(read_csv(file_path))

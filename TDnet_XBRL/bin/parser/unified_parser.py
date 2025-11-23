@@ -61,7 +61,7 @@ class UnifiedXBRLParser(XBRLParser):
         """
         BS（貸借対照表）をパース
         """
-        from bs_recorder import BsRecoder
+        from bin.bs_recorder import BsRecoder
         recorder = BsRecoder(file_path)
         recorder.record_bs()
 
@@ -69,7 +69,7 @@ class UnifiedXBRLParser(XBRLParser):
         """
         BS の抽出データを DB 保存
         """
-        from bs_db_inserter import BsDBInserter
+        from bin.bs_db_inserter import BsDBInserter
         inserter = BsDBInserter(file_path)
         inserter.insert_to_bs_db()
 
@@ -81,7 +81,7 @@ class UnifiedXBRLParser(XBRLParser):
         """
         PL（損益計算書）をパース
         """
-        from pl_recorder import PlRecoder
+        from bin.pl_recorder import PlRecoder
         recorder = PlRecoder(file_path)
         recorder.record_pl()
 
@@ -89,6 +89,6 @@ class UnifiedXBRLParser(XBRLParser):
         """
         PL の抽出データを DB 保存
         """
-        from pl_db_inserter import PlDBInserter
+        from bin.pl_db_inserter import PlDBInserter
         inserter = PlDBInserter(file_path)
         inserter.insert_to_pl_db()

@@ -1,11 +1,10 @@
 # processor/company_processor.py
 
-from pathlib import Path
 from typing import List
 
 from ..fileio.file_manager import FileManager
 from ..parser.unified_parser import UnifiedXBRLParser
-from ..config.config import Config
+from bin.config import Config
 
 
 class CompanyDataProcessor:

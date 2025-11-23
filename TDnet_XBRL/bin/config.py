@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
-import csv_reader
-
 
 @dataclass
 class Config:
