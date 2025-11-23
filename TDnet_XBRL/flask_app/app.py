@@ -118,8 +118,9 @@ def convert_to_quarterly_from_period(data):
 
             out['_fiscalYear'] = fiscal_year
             out['_quarter'] = quarter
-            # クオーター表記に変換: FY2023 Q1 形式
-            out['term'] = f"FY{fiscal_year} Q{quarter}"
+            # クオーター表記に変換: 19 Q1 形式（短縮）
+            year_short = str(fiscal_year)[-2:]
+            out['term'] = f"{year_short} {period}"
             # publicDayも継承
             if 'publicDay' in current['original']:
                 out['publicDay'] = current['original']['publicDay']
@@ -199,7 +200,9 @@ def get_bs_data(company_name):
 
         # termフィールドを生成（PLと同じ形式）
         if fiscal_year and period:
-            term_label = f"FY{fiscal_year} {period}"
+            # 短縮形式: FY2019 → 19
+            year_short = str(fiscal_year)[-2:]
+            term_label = f"{year_short} {period}"
         else:
             # Period/FiscalYearがない場合はスキップ
             continue
