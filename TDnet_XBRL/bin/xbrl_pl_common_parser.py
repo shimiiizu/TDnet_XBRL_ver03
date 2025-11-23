@@ -22,6 +22,7 @@ def get_quarter(xbrl_path):
 
 
 if __name__ == '__main__':
-    xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\4183\0102010-qcpl11-tse-qcedjpfr-41830-2014-06-30-01-2014-08-01-ixbrl.htm"
+    #xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\4183\0102010-qcpl11-tse-qcedjpfr-41830-2014-06-30-01-2014-08-01-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\2471\0102010-qcpl13-tse-qcediffr-24710-2025-08-31-01-2025-10-14-ixbrl.htm"
     #get_company_name(xbrl_path)
     print(get_quarter(xbrl_path))
