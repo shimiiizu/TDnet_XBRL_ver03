@@ -1,3 +1,17 @@
+# ============================================================
+# このプログラムは、XBRL形式の損益計算書（PL）ファイルを解析し、
+# ・企業コード
+# ・決算期間（四半期・年度）
+# ・売上高、営業利益などの主要なPL項目（IFRS / 日本基準に対応）
+# を抽出して、ローカルSQLiteデータベース（PL_DB.db）へ登録するツールです。
+#
+# IFRS形式の場合: xbrl_pl_ifrs_parser を利用
+# 日本基準(JP GAAP)の場合: xbrl_pl_japan_gaap_parser を利用
+#
+# ファイル名から企業コード・開示日を取得し、
+# XBRL内の context / DocumentPeriodEndDate から期間情報も抽出します。
+# ============================================================
+
 import sqlite3
 import xbrl_pl_ifrs_parser
 import xbrl_pl_japan_gaap_parser
@@ -217,7 +231,8 @@ class PlDBInserter:
 # =============================
 if __name__ == '__main__':
     test_files = [
-        r'E:\Zip_files\1301\0501000-anpl01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
+        #r'E:\Zip_files\1301\0501000-anpl01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
+        r'E:\Zip_files\2471\0102010-qcpl13-tse-qcediffr-24710-2025-08-31-01-2025-10-14-ixbrl.htm'
         # 複数追加可能
     ]
 
