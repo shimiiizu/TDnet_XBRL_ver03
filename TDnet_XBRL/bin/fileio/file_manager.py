@@ -36,7 +36,7 @@ class FileManager:
         """
         フォルダ作成
         """
-        from bin import xbrlfile_folder_creater
+        from bin.fileio import xbrlfile_folder_creater
         xbrlfile_folder_creater.create_xbrlfile_folder(
             str(path.parent),
             path.name
@@ -47,7 +47,7 @@ class FileManager:
         """
         フォルダ削除
         """
-        from bin import folder_deleter
+        from bin.fileio import folder_deleter
         folder_deleter.delete_folder(str(path))
 
     @staticmethod

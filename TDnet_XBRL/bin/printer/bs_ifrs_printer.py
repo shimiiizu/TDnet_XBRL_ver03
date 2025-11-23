@@ -1,5 +1,5 @@
-import xbrl_bs_ifrs_parser
-from bs_filename_parser import BsFilenameParser
+from bin.parser import xbrl_bs_ifrs_parser
+from bin.parser.bs_filename_parser import BsFilenameParser
 
 
 def print_bs_ifrs_info(bs_file_path):

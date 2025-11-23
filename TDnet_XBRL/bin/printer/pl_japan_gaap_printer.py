@@ -1,6 +1,6 @@
-import xbrl_pl_japan_gaap_parser
+from bin.parser import xbrl_pl_japan_gaap_parser
 import os
-from pl_filename_parser import PlFilenameParser
+from bin.parser.pl_filename_parser import PlFilenameParser
 
 
 def print_pl_japan_gaap_info(pl_file_path):

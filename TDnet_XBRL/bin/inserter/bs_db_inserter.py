@@ -6,10 +6,8 @@ Period と FiscalYear を追加
 
 import sqlite3
 import os
-import xbrl_bs_common_parser
-import xbrl_bs_japan_gaap_parser
-import xbrl_bs_ifrs_parser
-from bs_filename_parser import BsFilenameParser
+from bin.parser import xbrl_bs_common_parser, xbrl_bs_ifrs_parser, xbrl_bs_japan_gaap_parser
+from bin.parser.bs_filename_parser import BsFilenameParser
 from datetime import datetime
 from lxml import etree
 import re

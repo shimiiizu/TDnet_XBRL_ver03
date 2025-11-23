@@ -1,5 +1,5 @@
-import xbrl_bs_japan_gaap_parser
-from bs_filename_parser import BsFilenameParser
+from bin.parser import xbrl_bs_japan_gaap_parser
+from bin.parser.bs_filename_parser import BsFilenameParser
 
 def print_bs_japan_gaap_info(bs_file_path):
     bsfilenameparser = BsFilenameParser(bs_file_path)

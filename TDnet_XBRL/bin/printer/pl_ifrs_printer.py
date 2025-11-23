@@ -1,6 +1,6 @@
-import xbrl_pl_ifrs_parser
+from bin.parser import xbrl_pl_ifrs_parser
 import os
-from pl_filename_parser import PlFilenameParser
+from bin.parser.pl_filename_parser import PlFilenameParser
 
 
 

@@ -3,7 +3,7 @@ BSの基本情報をプリンアウトする。
 
 """
 
-import xbrl_bs_common_parser
+from bin.parser import xbrl_bs_common_parser
 
 
 def print_bs_common_info(bs_file_path):
