@@ -248,11 +248,33 @@
                             fill: false,
                             pointRadius: 6,
                             pointHoverRadius: 8,
+                            pointBackgroundColor: function(context) {
+                                // Q4のみ赤色、それ以外は青色
+                                const dataPoint = context.dataset.data[context.dataIndex];
+                                if (dataPoint && dataPoint.label && dataPoint.label.includes('.Q4')) {
+                                    return '#F44336';
+                                }
+                                return '#2196F3';
+                            },
+                            pointBorderColor: function(context) {
+                                const dataPoint = context.dataset.data[context.dataIndex];
+                                if (dataPoint && dataPoint.label && dataPoint.label.includes('.Q4')) {
+                                    return '#F44336';
+                                }
+                                return '#2196F3';
+                            },
                             datalabels: {
                                 display: true,
                                 align: 'top',
                                 offset: 8,
-                                color: '#2196F3',
+                                color: function(context) {
+                                    // Q4のラベルも赤色
+                                    const dataPoint = context.dataset.data[context.dataIndex];
+                                    if (dataPoint && dataPoint.label && dataPoint.label.includes('.Q4')) {
+                                        return '#F44336';
+                                    }
+                                    return '#2196F3';
+                                },
                                 font: {
                                     size: 10,
                                     weight: 'bold'
@@ -352,7 +374,22 @@
                         spanGaps: true,
                         fill: false,
                         pointRadius: 5,
-                        pointHoverRadius: 7
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: function(context) {
+                            // Q4のみ赤色
+                            const labelValue = labels[context.dataIndex];
+                            if (labelValue && labelValue.includes('.Q4')) {
+                                return '#F44336';
+                            }
+                            return '#2196F3';
+                        },
+                        pointBorderColor: function(context) {
+                            const labelValue = labels[context.dataIndex];
+                            if (labelValue && labelValue.includes('.Q4')) {
+                                return '#F44336';
+                            }
+                            return '#2196F3';
+                        }
                     }];
 
                     const chart = new Chart(ctx, {
