@@ -120,7 +120,7 @@ def convert_to_quarterly_from_period(data):
             out['_quarter'] = quarter
             # クオーター表記に変換: 19 Q1 形式（短縮）
             year_short = str(fiscal_year)[-2:]
-            out['term'] = f"{year_short} {period}"
+            out['term'] = f"{year_short} {quarter}"
             # publicDayも継承
             if 'publicDay' in current['original']:
                 out['publicDay'] = current['original']['publicDay']
