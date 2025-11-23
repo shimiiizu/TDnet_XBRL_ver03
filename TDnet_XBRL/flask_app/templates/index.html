@@ -183,60 +183,40 @@
 
                 const label = metricNames[activeMetric];
 
-                // 財務データをQ4とQ1-Q3に分割
-                const dataQ4 = [];
-                const dataOther = [];
-
-                data.filter(d => d.publicDay && d[activeMetric] != null)
+                // 財務データを統一して処理
+                const financialData = data
+                    .filter(d => d.publicDay && d[activeMetric] != null)
                     .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
-                    .forEach(d => {
-                        const point = { x: d.publicDay, y: d[activeMetric], label: d.term };
-                        if (d.term && d.term.includes('.Q4')) {
-                            dataQ4.push(point);
-                        } else {
-                            dataOther.push(point);
-                        }
-                    });
+                    .map(d => ({
+                        x: d.publicDay,
+                        y: d[activeMetric],
+                        label: d.term
+                    }));
 
                 // 株価データ
                 const stockChartData = stockData.map(s => ({ x: s.date, y: s.price }));
 
                 // 日付範囲
-                const allDates = [...dataQ4.map(d => d.x), ...dataOther.map(d => d.x), ...stockChartData.map(d => d.x)].sort();
+                const allDates = [...financialData.map(d => d.x), ...stockChartData.map(d => d.x)].sort();
                 const minDate = allDates[0];
                 const maxDate = allDates[allDates.length - 1];
 
                 const datasets = [
                     {
-                        label: label + ' (Q1-Q3)',
-                        data: dataOther,
+                        label: label,
+                        data: financialData,
                         borderColor: '#2196F3',
                         backgroundColor: '#2196F3',
                         yAxisID: 'y',
                         pointRadius: 6,
                         pointHoverRadius: 8,
+                        borderWidth: 2,
+                        tension: 0.1,
                         datalabels: {
                             display: true,
                             align: 'top',
                             offset: 8,
                             color: '#2196F3',
-                            font: { size: 10, weight: 'bold' },
-                            formatter: (value, context) => context.dataset.data[context.dataIndex].label || ''
-                        }
-                    },
-                    {
-                        label: label + ' (Q4)',
-                        data: dataQ4,
-                        borderColor: '#F44336',
-                        backgroundColor: '#F44336',
-                        yAxisID: 'y',
-                        pointRadius: 6,
-                        pointHoverRadius: 8,
-                        datalabels: {
-                            display: true,
-                            align: 'top',
-                            offset: 8,
-                            color: '#F44336',
                             font: { size: 10, weight: 'bold' },
                             formatter: (value, context) => context.dataset.data[context.dataIndex].label || ''
                         }
@@ -312,7 +292,6 @@
                 alert('検索失敗');
             }
         }
-
 
         window.addEventListener('DOMContentLoaded', loadCompanies);
     </script>
