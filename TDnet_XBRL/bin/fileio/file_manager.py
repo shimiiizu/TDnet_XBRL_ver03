@@ -87,8 +87,8 @@ class FileManager:
             consolidation: 'consolidated' or 'standalone'
         """
 
-        from bin import bs_filelist_maker
-        from bin import pl_filelist_maker
+        from bin.fileio import bs_filelist_maker
+        from bin.fileio import pl_filelist_maker
 
         # annual → a、quarterly → q、semiannual → s
         period_code = {
