@@ -8,14 +8,11 @@ def main():
     XBRL処理システムのエントリーポイント。
     Config を読み込み、XBRLProcessingSystem を起動する。
     """
-    # 設定を読み込み（CSV版を利用しても良い）
+
+    # 設定(config.py)
     config = Config.from_defaults()
-    # config = Config.from_csv("./config/code_list.csv")
 
-    # 必要であれば設定チェック
-    # config.validate()
-
-    # XBRL処理システムを起動
+    # XBRL処理システム(system/xbrl_system.py)を起動
     system = XBRLProcessingSystem(config)
     system.run()
 
