@@ -229,4 +229,7 @@ if __name__ == '__main__':
             print(f'\n{"="*60}')
             print(f'処理開始: {pl_file_path}')
             print(f'{"="*60}')
-            inserter
+            inserter = PlDBInserter(pl_file_path)
+            inserter.insert_to_pl_db()
+        else:
+            print(f'ファイルが見つかりません: {pl_file_path}')
