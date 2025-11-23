@@ -26,18 +26,7 @@
         .metric-button {padding:12px;font-size:14px;background:#e0e0e0;color:#333;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:all .3s;}
         .metric-button:hover {background:#d0d0d0;}
         .metric-button.active {background:#2196F3;color:#fff;border-color:#1976D2;}
-
-        .chart-container {
-            background:#fff;
-            padding:20px;
-            border-radius:8px;
-            box-shadow:0 2px 4px rgba(0,0,0,.1);
-            margin-bottom:20px;
-            position:relative;
-            height: 350px;
-            overflow: hidden;
-        }
-
+        .chart-container {background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);margin-bottom:20px;position:relative;height: 350px;overflow: hidden;}
         .stock-checkbox {background:#fff3e0;padding:12px;border-radius:8px;margin-top:15px;border-left:4px solid #ff9800;}
         .stock-checkbox label {display:inline;color:#e65100;cursor:pointer;}
         #loading {text-align:center;padding:40px;color:#666;}
@@ -49,15 +38,14 @@
     <h1>財務データ分析ツール</h1>
 
     <div class="info-box">
-        <p><strong>横軸表示: 会計年度とクオーター（FY2023 Q1形式）</strong></p>
-        <p>株価は各決算日時点の終値を表示します。</p>
+        <p><strong>横軸: 日付表示、クオーター情報は各点に表示</strong></p>
+        <p>Q4は赤色、Q1-Q3は青色で表示されます。</p>
     </div>
 
     <div class="controls">
         <label for="codeInput">証券コードで検索:</label>
         <input type="text" id="codeInput" placeholder="例: 9504" />
         <button id="searchButton">検索</button>
-
         <label for="companySelect" style="margin-top:20px;">または会社を選択:</label>
         <select id="companySelect"><option value="">読み込み中...</option></select>
     </div>
@@ -67,7 +55,6 @@
         <button class="tab" onclick="switchTab('pl')">損益計算書 (PL)</button>
     </div>
 
-    <!-- BS -->
     <div id="bs-content" class="tab-content active">
         <div class="controls">
             <label>表示する指標:</label>
@@ -88,7 +75,6 @@
         </div>
     </div>
 
-    <!-- PL -->
     <div id="pl-content" class="tab-content">
         <div class="controls">
             <label>表示する指標:</label>
@@ -127,7 +113,6 @@
                 const resp = await fetch('/api/companies');
                 if (!resp.ok) throw new Error('Network error');
                 const companies = await resp.json();
-
                 select.innerHTML = '<option value="">会社を選択してください</option>';
                 companies.forEach(c => {
                     const opt = document.createElement('option');
@@ -135,14 +120,12 @@
                     opt.textContent = `${c.name} (${c.code})`;
                     select.appendChild(opt);
                 });
-
                 select.onchange = async () => {
                     if (select.value) {
                         const comp = companies.find(c => c.code === select.value);
                         await loadAllData(comp.code, comp.name);
                     }
                 };
-
                 document.getElementById('searchButton').onclick = searchByCode;
                 loading.style.display = 'none';
             } catch (e) {
@@ -168,15 +151,9 @@
                     fetch(`/api/pl-data/${code}`),
                     fetch(`/api/stock-price/${code}`)
                 ]);
-
                 const bs = await bsResp.json();
                 const pl = await plResp.json();
                 const stockData = await stockResp.json();
-
-                console.log('BSデータ:', bs);
-                console.log('PLデータ:', pl);
-                console.log('株価データ:', stockData);
-
                 renderChart('bs', bs, stockData);
                 renderChart('pl', pl, stockData);
             } catch (e) {
@@ -207,232 +184,117 @@
 
                 const label = metricNames[activeMetric];
 
-                // 株価表示の有無で処理を分岐
-                if (checkbox.checked && stockData && stockData.length > 0) {
-                    // 株価表示ON: 日付ベースで表示
+                // 財務データをQ4とQ1-Q3に分割
+                const dataQ4 = [];
+                const dataOther = [];
 
-                    // 財務データ: PublicDayの位置のみにプロット（日付順にソート）
-                    // Q4とそれ以外で分ける
-                    const financialDataQ4 = [];
-                    const financialDataOther = [];
-
-                    data
-                        .filter(d => d.publicDay && d[activeMetric] != null)
-                        .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
-                        .forEach(d => {
-                            const dataPoint = {
-                                x: d.publicDay,
-                                y: d[activeMetric],
-                                label: d.term
-                            };
-                            if (d.term && d.term.includes('.Q4')) {
-                                financialDataQ4.push(dataPoint);
-                            } else {
-                                financialDataOther.push(dataPoint);
-                            }
-                        });
-
-                    // 株価データ: 全日次データ
-                    const stockChartData = stockData.map(s => ({
-                        x: s.date,
-                        y: s.price
-                    }));
-
-                    console.log('財務データ件数:', financialData.length);
-
-                    // 日付範囲を取得
-                    const allDatesInData = [
-                        ...financialData.map(d => d.x),
-                        ...stockChartData.map(d => d.x)
-                    ].sort();
-                    const minDate = allDatesInData[0];
-                    const maxDate = allDatesInData[allDatesInData.length - 1];
-
-                    const datasets = [
-                        {
-                            label,
-                            data: financialData,
-                            borderColor: '#2196F3',
-                            backgroundColor: '#2196F3',
-                            yAxisID: 'y',
-                            spanGaps: false,
-                            fill: false,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            pointBackgroundColor: function(context) {
-                                // Q4のみ赤色、それ以外は青色
-                                const dataPoint = context.dataset.data[context.dataIndex];
-                                if (dataPoint && dataPoint.label && dataPoint.label.includes('.Q4')) {
-                                    return '#F44336';
-                                }
-                                return '#2196F3';
-                            },
-                            pointBorderColor: function(context) {
-                                const dataPoint = context.dataset.data[context.dataIndex];
-                                if (dataPoint && dataPoint.label && dataPoint.label.includes('.Q4')) {
-                                    return '#F44336';
-                                }
-                                return '#2196F3';
-                            },
-                            datalabels: {
-                                display: true,
-                                align: 'top',
-                                offset: 8,
-                                color: function(context) {
-                                    // Q4のラベルも赤色
-                                    const dataPoint = context.dataset.data[context.dataIndex];
-                                    if (dataPoint && dataPoint.label && dataPoint.label.includes('.Q4')) {
-                                        return '#F44336';
-                                    }
-                                    return '#2196F3';
-                                },
-                                font: {
-                                    size: 10,
-                                    weight: 'bold'
-                                },
-                                formatter: function(value, context) {
-                                    // 各点のクオーターラベルを表示
-                                    return context.dataset.data[context.dataIndex].label || '';
-                                }
-                            }
-                        },
-                        {
-                            label: '株価（円）',
-                            data: stockChartData,
-                            borderColor: '#FF9800',
-                            backgroundColor: 'transparent',
-                            yAxisID: 'y1',
-                            spanGaps: true,
-                            fill: false,
-                            pointRadius: 0,
-                            borderWidth: 1.5,
-                            datalabels: {
-                                display: false
-                            }
-                        }
-                    ];
-
-                    const chart = new Chart(ctx, {
-                        type: 'line',
-                        data: { datasets },
-                        plugins: [ChartDataLabels],
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                legend: { position: 'top' },
-                                datalabels: {
-                                    display: false  // デフォルトはオフ（各datasetで個別設定）
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        title: function(context) {
-                                            const dataPoint = context[0].raw;
-                                            if (dataPoint && dataPoint.label) {
-                                                return `${dataPoint.label} (${dataPoint.x})`;
-                                            }
-                                            return context[0].label;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    type: 'time',
-                                    min: minDate,
-                                    max: maxDate,
-                                    time: {
-                                        unit: 'month',
-                                        displayFormats: {
-                                            month: 'yyyy/MM'
-                                        },
-                                        tooltipFormat: 'yyyy-MM-dd'
-                                    },
-                                    title: { display: true, text: '日付' },
-                                    ticks: {
-                                        maxRotation: 45,
-                                        minRotation: 45
-                                    }
-                                },
-                                y: {
-                                    position: 'left',
-                                    title: { display: true, text: '金額 (百万円)' }
-                                },
-                                y1: {
-                                    position: 'right',
-                                    grid: { drawOnChartArea: false },
-                                    title: { display: true, text: '株価 (円)' }
-                                }
-                            }
+                data.filter(d => d.publicDay && d[activeMetric] != null)
+                    .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
+                    .forEach(d => {
+                        const point = { x: d.publicDay, y: d[activeMetric], label: d.term };
+                        if (d.term && d.term.includes('.Q4')) {
+                            dataQ4.push(point);
+                        } else {
+                            dataOther.push(point);
                         }
                     });
 
-                    if (type === 'bs') bsChart = chart;
-                    else plChart = chart;
+                // 株価データ
+                const stockChartData = stockData.map(s => ({ x: s.date, y: s.price }));
 
-                } else {
-                    // 株価表示OFF: クオーター表記のまま
-                    const labels = data.map(d => d.term);
-                    const values = data.map(d => d[activeMetric] ?? null);
+                // 日付範囲
+                const allDates = [...dataQ4.map(d => d.x), ...dataOther.map(d => d.x), ...stockChartData.map(d => d.x)].sort();
+                const minDate = allDates[0];
+                const maxDate = allDates[allDates.length - 1];
 
-                    const datasets = [{
-                        label,
-                        data: values,
+                const datasets = [
+                    {
+                        label: label + ' (Q1-Q3)',
+                        data: dataOther,
                         borderColor: '#2196F3',
                         backgroundColor: '#2196F3',
                         yAxisID: 'y',
-                        spanGaps: true,
-                        fill: false,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        pointBackgroundColor: function(context) {
-                            // Q4のみ赤色
-                            const labelValue = labels[context.dataIndex];
-                            if (labelValue && labelValue.includes('.Q4')) {
-                                return '#F44336';
-                            }
-                            return '#2196F3';
-                        },
-                        pointBorderColor: function(context) {
-                            const labelValue = labels[context.dataIndex];
-                            if (labelValue && labelValue.includes('.Q4')) {
-                                return '#F44336';
-                            }
-                            return '#2196F3';
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        datalabels: {
+                            display: true,
+                            align: 'top',
+                            offset: 8,
+                            color: '#2196F3',
+                            font: { size: 10, weight: 'bold' },
+                            formatter: (value, context) => context.dataset.data[context.dataIndex].label || ''
                         }
-                    }];
+                    },
+                    {
+                        label: label + ' (Q4)',
+                        data: dataQ4,
+                        borderColor: '#F44336',
+                        backgroundColor: '#F44336',
+                        yAxisID: 'y',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        datalabels: {
+                            display: true,
+                            align: 'top',
+                            offset: 8,
+                            color: '#F44336',
+                            font: { size: 10, weight: 'bold' },
+                            formatter: (value, context) => context.dataset.data[context.dataIndex].label || ''
+                        }
+                    }
+                ];
 
-                    const chart = new Chart(ctx, {
-                        type: 'line',
-                        data: { labels, datasets },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            interaction: { mode: 'index', intersect: false },
-                            plugins: {
-                                legend: { position: 'top' }
-                            },
-                            scales: {
-                                x: {
-                                    type: 'category',
-                                    title: { display: true, text: '会計年度・クオーター' },
-                                    ticks: {
-                                        maxRotation: 45,
-                                        minRotation: 45
+                // 株価ON時のみ株価datasetを追加
+                if (checkbox.checked && stockData.length > 0) {
+                    datasets.push({
+                        label: '株価（円）',
+                        data: stockChartData,
+                        borderColor: '#FF9800',
+                        backgroundColor: 'transparent',
+                        yAxisID: 'y1',
+                        pointRadius: 0,
+                        borderWidth: 1.5,
+                        datalabels: { display: false }
+                    });
+                }
+
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets },
+                    plugins: [ChartDataLabels],
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { position: 'top' },
+                            datalabels: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: (context) => {
+                                        const point = context[0].raw;
+                                        return point && point.label ? `${point.label} (${point.x})` : context[0].label;
                                     }
-                                },
-                                y: {
-                                    position: 'left',
-                                    title: { display: true, text: '金額 (百万円)' }
                                 }
                             }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                min: minDate,
+                                max: maxDate,
+                                time: { unit: 'month', displayFormats: { month: 'yyyy/MM' }, tooltipFormat: 'yyyy-MM-dd' },
+                                title: { display: true, text: '日付' },
+                                ticks: { maxRotation: 45, minRotation: 45 }
+                            },
+                            y: { position: 'left', title: { display: true, text: '金額 (百万円)' } },
+                            y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
                         }
-                    });
+                    }
+                });
 
-                    if (type === 'bs') bsChart = chart;
-                    else plChart = chart;
-                }
+                if (type === 'bs') bsChart = chart;
+                else plChart = chart;
             }
             drawChart();
         }
@@ -451,7 +313,6 @@
                 alert('検索失敗');
             }
         }
-
 
         window.addEventListener('DOMContentLoaded', loadCompanies);
     </script>
