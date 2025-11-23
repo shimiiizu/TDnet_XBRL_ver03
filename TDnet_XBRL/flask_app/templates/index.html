@@ -6,6 +6,7 @@
     <title>財務データ分析ツール - BS & PL</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <style>
         body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px; background:#f5f5f5;}
         h1 {color:#333;text-align:center;}
@@ -216,7 +217,8 @@
                         .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
                         .map(d => ({
                             x: d.publicDay,
-                            y: d[activeMetric]
+                            y: d[activeMetric],
+                            label: d.term  // クオーターラベルを保持
                         }));
 
                     // 株価データ: 全日次データ
@@ -225,15 +227,6 @@
                         y: s.price
                     }));
 
-                    // クオーターラベルのマッピング作成
-                    const quarterLabels = {};
-                    data.forEach(d => {
-                        if (d.publicDay && d.term) {
-                            quarterLabels[d.publicDay] = d.term;
-                        }
-                    });
-
-                    console.log('クオーターラベル:', quarterLabels);
                     console.log('財務データ件数:', financialData.length);
 
                     // 日付範囲を取得
@@ -244,9 +237,6 @@
                     const minDate = allDatesInData[0];
                     const maxDate = allDatesInData[allDatesInData.length - 1];
 
-                    // クオーターラベル表示用の配列を作成（クロージャで保持）
-                    const quarterDatesForTicks = Object.keys(quarterLabels).sort();
-
                     const datasets = [
                         {
                             label,
@@ -256,8 +246,22 @@
                             yAxisID: 'y',
                             spanGaps: false,
                             fill: false,
-                            pointRadius: 5,
-                            pointHoverRadius: 7
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            datalabels: {
+                                display: true,
+                                align: 'top',
+                                offset: 8,
+                                color: '#2196F3',
+                                font: {
+                                    size: 10,
+                                    weight: 'bold'
+                                },
+                                formatter: function(value, context) {
+                                    // 各点のクオーターラベルを表示
+                                    return context.dataset.data[context.dataIndex].label || '';
+                                }
+                            }
                         },
                         {
                             label: '株価（円）',
@@ -268,26 +272,34 @@
                             spanGaps: true,
                             fill: false,
                             pointRadius: 0,
-                            borderWidth: 1.5
+                            borderWidth: 1.5,
+                            datalabels: {
+                                display: false
+                            }
                         }
                     ];
 
                     const chart = new Chart(ctx, {
                         type: 'line',
                         data: { datasets },
+                        plugins: [ChartDataLabels],
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             interaction: { mode: 'index', intersect: false },
                             plugins: {
                                 legend: { position: 'top' },
+                                datalabels: {
+                                    display: false  // デフォルトはオフ（各datasetで個別設定）
+                                },
                                 tooltip: {
                                     callbacks: {
                                         title: function(context) {
-                                            const date = context[0].parsed.x;
-                                            const dateStr = new Date(date).toISOString().split('T')[0];
-                                            const quarter = quarterLabels[dateStr];
-                                            return quarter ? `${quarter} (${dateStr})` : dateStr;
+                                            const dataPoint = context[0].raw;
+                                            if (dataPoint && dataPoint.label) {
+                                                return `${dataPoint.label} (${dataPoint.x})`;
+                                            }
+                                            return context[0].label;
                                         }
                                     }
                                 }
@@ -298,35 +310,16 @@
                                     min: minDate,
                                     max: maxDate,
                                     time: {
-                                        tooltipFormat: 'yyyy-MM-dd',
-                                        unit: 'month'
-                                    },
-                                    title: { display: true, text: '会計年度・クオーター' },
-                                    ticks: {
-                                        source: 'auto',
-                                        callback: function(value, index, ticks) {
-                                            const dateStr = new Date(value).toISOString().split('T')[0];
-
-                                            // 完全一致するクオーターラベルがあれば返す
-                                            if (quarterLabels[dateStr]) {
-                                                return quarterLabels[dateStr];
-                                            }
-
-                                            // 近い日付を探す（±5日以内）
-                                            for (const qDate of quarterDatesForTicks) {
-                                                const diff = Math.abs(new Date(qDate) - new Date(value));
-                                                const daysDiff = diff / (1000 * 60 * 60 * 24);
-                                                if (daysDiff <= 5) {
-                                                    return quarterLabels[qDate];
-                                                }
-                                            }
-
-                                            // クオーターでない目盛りは非表示
-                                            return '';
+                                        unit: 'month',
+                                        displayFormats: {
+                                            month: 'yyyy/MM'
                                         },
+                                        tooltipFormat: 'yyyy-MM-dd'
+                                    },
+                                    title: { display: true, text: '日付' },
+                                    ticks: {
                                         maxRotation: 45,
-                                        minRotation: 45,
-                                        autoSkip: false
+                                        minRotation: 45
                                     }
                                 },
                                 y: {
