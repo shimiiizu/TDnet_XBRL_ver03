@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
+from bin.config import csv_reader
+
 
 @dataclass
 class Config:
@@ -27,7 +29,7 @@ class Config:
         CSV から読み込む場合は from_csv() を使用する。
         """
         return cls(
-            codes=[2471],  # デフォルト企業コード（任意）
+            codes=[5233],  # デフォルト企業コード（任意）
             # CSVを使いたいなら以下に切り替え可能：
             # codes=csv_reader.read_csv('./config/code_list.csv'),
 
