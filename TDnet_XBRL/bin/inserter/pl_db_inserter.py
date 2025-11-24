@@ -146,7 +146,7 @@ class PlDBInserter:
             conn = sqlite3.connect(self.DB)
             cursor = conn.cursor()
 
-            # テーブル作成
+            # テーブル作成（created_at を日本時間で記録）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS PL (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -165,7 +165,7 @@ class PlDBInserter:
                     OperatingIncome REAL,
                     OrdinaryIncome REAL,
                     NetIncome REAL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
                     EPS REAL
                 )
             ''')
