@@ -46,10 +46,18 @@ def get_snpl_list(folder_path):
     matching_files_snpl = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_snpl
 
+def get_acpc_list(folder_path):
+    """本決算_連結のPLファイルリストを取得"""
+    search_string = 'acpc'
+    matching_files_acpc = glob.glob(f'{folder_path}/*{search_string}*')
+    return matching_files_acpc
+
+
+
 
 if __name__ == '__main__':
     # テスト用フォルダパス（環境に合わせて変更してください）
-    folder_path = r"E:\Zip_files\9504"
+    folder_path = r"E:\Zip_files\1301"
 
     print(f'フォルダ: {folder_path}\n')
     print('=' * 60)
@@ -60,6 +68,13 @@ if __name__ == '__main__':
     for file in acpl_list:
         print(f'  {file}')
     print(f'合計: {len(acpl_list)}件')
+
+    # 本決算_連結
+    acpc_list = get_acpc_list(folder_path)
+    print(f'\n【本決算_連結】 acpc')
+    for file in acpc_list:
+        print(f'  {file}')
+    print(f'合計: {len(acpc_list)}件')
 
     # 本決算_単独
     anpl_list = get_anpl_list(folder_path)
@@ -97,4 +112,4 @@ if __name__ == '__main__':
     print(f'合計: {len(snpl_list)}件')
 
     print('\n' + '=' * 60)
-    print(f'全PLファイル合計: {len(acpl_list) + len(anpl_list) + len(qcpl_list) + len(qnpl_list) + len(scpl_list) + len(snpl_list)}件')
+    print(f'全PLファイル合計: {len(acpl_list) + len(anpl_list) + len(qcpl_list) + len(qnpl_list) + len(scpl_list) + len(snpl_list)+ len(acpc_list)}件')
