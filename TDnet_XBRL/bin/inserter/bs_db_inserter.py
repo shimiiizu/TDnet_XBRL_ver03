@@ -174,7 +174,7 @@ class BsDBInserter:
             RetainedEarnings REAL,
             NetAssets REAL,
             Equity REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))
         )''')
 
         if accounting_standard == "IFRS":
