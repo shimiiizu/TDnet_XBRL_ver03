@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 current_dir = os.path.dirname(os.path.abspath(__file__))
 utils_dir = os.path.join(current_dir, '..', 'utils')
 sys.path.insert(0, utils_dir)
-from xbrl_utils import find_tag_with_flexible_context, extract_value_from_tag
+from bin.utils.xbrl_utils import find_tag_with_flexible_context, extract_value_from_tag
 
 
 # 現金及び預金(億円)を取得する関数
@@ -100,7 +100,7 @@ def get_NetAssets(xbrl_path):
 
 
 if __name__ == '__main__':
-    xbrl_path = r"C:\Users\Shimizu\PycharmProjects\TDnet_XBRL\TDnet_XBRL\zip_files\6196\0500000-anbs02-tse-anedjpfr-61960-2016-08-31-01-2016-09-29-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\5233/0500000-scbs15-tse-scedjpfr-52330-2025-09-30-01-2025-11-11-ixbrl.htm"
     print(f"現金及び預金: {get_CashAndDeposits(xbrl_path)}億円")
     print(f"流動資産: {get_CurrentAssets(xbrl_path)}億円")
     print(f"有形固定資産: {get_PropertyPlantAndEquipment(xbrl_path)}億円")

@@ -1,6 +1,6 @@
+from bs4 import BeautifulSoup
 import os
 import sys
-from bs4 import BeautifulSoup
 
 # 共通関数をインポート
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -9,94 +9,119 @@ sys.path.insert(0, utils_dir)
 from xbrl_utils import find_tag_with_flexible_context, extract_value_from_tag
 
 
-# 売上(億円)を取得する関数
-def get_NetSales(xbrl_path):
+# 現金同等額(億円)を取得する関数
+def get_CashAndCashEquivalent(xbrl_path):
     try:
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        tag = find_tag_with_flexible_context(soup, "jppfs_cor:NetSales", context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "NetSales")
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:CashAndCashEquivalentsIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "CashAndCashEquivalent")
 
     except Exception as e:
-        print(f'エラー: NetSales取得失敗 - {xbrl_path}: {e}')
+        print(f"エラー: CashAndCashEquivalent の取得失敗 - {xbrl_path}: {e}")
         return None
 
 
-# 販売費及び一般管理費(億円)を取得する関数
-def get_SellingGeneralAndAdministrativeExpenses(xbrl_path):
+# 流動資産合計を取得する関数
+def get_CurrentAssets(xbrl_path):
     try:
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        tag = find_tag_with_flexible_context(soup, "jppfs_cor:SellingGeneralAndAdministrativeExpenses",
-                                             context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "SellingGeneralAndAdministrativeExpenses")
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:CurrentAssetsIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "CurrentAssets")
 
     except Exception as e:
-        print(f'エラー: SellingGeneralAndAdministrativeExpenses取得失敗 - {xbrl_path}: {e}')
+        print(f"エラー: CurrentAssets の取得失敗 - {xbrl_path}: {e}")
         return None
 
 
-# 営業利益(億円)を取得する関数
-def get_OperatingIncome(xbrl_path):
+# 有形固定資産を取得する関数
+def get_PropertyPlantAndEquipment(xbrl_path):
     try:
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        tag = find_tag_with_flexible_context(soup, "jppfs_cor:OperatingIncome", context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "OperatingIncome")
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:PropertyPlantAndEquipmentIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "PropertyPlantAndEquipment")
 
     except Exception as e:
-        print(f'エラー: OperatingIncome取得失敗 - {xbrl_path}: {e}')
+        print(f"エラー: PropertyPlantAndEquipment の取得失敗 - {xbrl_path}: {e}")
         return None
 
 
-# 経常利益(億円)を取得する関数
-def get_OrdinaryIncome(xbrl_path):
+# 非流動資産合計を取得する関数
+def get_NonCurrentAssets(xbrl_path):
     try:
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        tag = find_tag_with_flexible_context(soup, "jppfs_cor:OrdinaryIncome", context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "OrdinaryIncome")
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:NonCurrentAssetsIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "NonCurrentAssets")
 
     except Exception as e:
-        print(f'エラー: OrdinaryIncome取得失敗 - {xbrl_path}: {e}')
+        print(f"エラー: NonCurrentAssets の取得失敗 - {xbrl_path}: {e}")
         return None
 
 
-# 純利益(億円)を取得する関数
-def get_NetIncome(xbrl_path):
+# 資産合計を取得する関数
+def get_Assets(xbrl_path):
     try:
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        # NetIncomeを探す
-        tag = find_tag_with_flexible_context(soup, "jppfs_cor:NetIncome", context_type='duration')
-
-        # NetIncomeが見つからない場合はProfitLossを試す
-        if tag is None:
-            tag = find_tag_with_flexible_context(soup, "jppfs_cor:ProfitLoss", context_type='duration')
-
-        return extract_value_from_tag(tag, xbrl_path, "NetIncome/ProfitLoss")
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:AssetsIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "Assets")
 
     except Exception as e:
-        print(f'エラー: NetIncome取得失敗 - {xbrl_path}: {e}')
+        print(f"エラー: Assets の取得失敗 - {xbrl_path}: {e}")
+        return None
+
+
+# 利益剰余金を取得する関数
+def get_RetainedEarningsIFRS(xbrl_path):
+    try:
+        with open(xbrl_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:RetainedEarningsIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "RetainedEarningsIFRS")
+
+    except Exception as e:
+        print(f"エラー: RetainedEarningsIFRS の取得失敗 - {xbrl_path}: {e}")
+        return None
+
+
+# 資本合計を取得する関数
+def get_EquityIFRS(xbrl_path):
+    try:
+        with open(xbrl_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:EquityIFRS", context_type='instant')
+        return extract_value_from_tag(tag, xbrl_path, "EquityIFRS")
+
+    except Exception as e:
+        print(f"エラー: EquityIFRS の取得失敗 - {xbrl_path}: {e}")
         return None
 
 
 if __name__ == '__main__':
-    # テスト用
-    xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\7172\0102010-acpl01-tse-acedjpfr-71720-2014-12-31-01-2015-02-12-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\2471/0101010-qcfs03-tse-qcediffr-24710-2024-02-29-01-2024-04-12-ixbrl.htm"
 
-    print(f'売上: {get_NetSales(xbrl_path)}')
-    print(f'販管費: {get_SellingGeneralAndAdministrativeExpenses(xbrl_path)}')
-    print(f'営業利益: {get_OperatingIncome(xbrl_path)}')
-    print(f'経常利益: {get_OrdinaryIncome(xbrl_path)}')
-    print(f'純利益: {get_NetIncome(xbrl_path)}')
+    print("=== IFRS BS データ取得テスト ===")
+    print(f"CashAndCashEquivalent: {get_CashAndCashEquivalent(xbrl_path)}")
+    print(f"CurrentAssets: {get_CurrentAssets(xbrl_path)}")
+    print(f"PropertyPlantAndEquipment: {get_PropertyPlantAndEquipment(xbrl_path)}")
+    print(f"NonCurrentAssets: {get_NonCurrentAssets(xbrl_path)}")
+    print(f"Assets: {get_Assets(xbrl_path)}")
+    print(f"RetainedEarningsIFRS: {get_RetainedEarningsIFRS(xbrl_path)}")
+    print(f"EquityIFRS: {get_EquityIFRS(xbrl_path)}")
