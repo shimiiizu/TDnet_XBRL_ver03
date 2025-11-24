@@ -24,7 +24,8 @@ def find_tag_with_flexible_context(soup, tag_name, context_type='instant'):
             "CurrentYTDInstant",
             "CurrentPeriodInstant",
             "CurrentYearInstant_NonConsolidatedMember",
-            "CurrentQuarterInstant_NonConsolidatedMember"
+            "CurrentQuarterInstant_NonConsolidatedMember",
+            "InterimInstant"
         ]
     elif context_type == 'duration':
         # PL用の contextref リスト
