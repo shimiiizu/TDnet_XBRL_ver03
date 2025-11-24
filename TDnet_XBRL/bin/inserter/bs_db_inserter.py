@@ -178,10 +178,7 @@ class BsDBInserter:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
 
-        cursor.execute('SELECT COUNT(*) FROM BS WHERE FileName = ?', (filename,))
-        if cursor.fetchone()[0] == 0:
-
-            if accounting_standard == "IFRS":
+        if accounting_standard == "IFRS":
                 current_assets_ifrs = xbrl_bs_ifrs_parser.get_CurrentAssets(self.bs_file_path)
                 assets_ifrs = xbrl_bs_ifrs_parser.get_Assets(self.bs_file_path)
                 cashandcashequivalent_ifrs = xbrl_bs_ifrs_parser.get_CashAndCashEquivalent(self.bs_file_path)
@@ -203,7 +200,7 @@ class BsDBInserter:
 
                 print(f'IFRS BSデータを登録: {code} | {typeofcurrentperioddei} | {fiscal_year}年度')
 
-            elif accounting_standard == "Japan GAAP":
+        elif accounting_standard == "Japan GAAP":
                 cashanddeposits = xbrl_bs_japan_gaap_parser.get_CashAndDeposits(self.bs_file_path)
                 propertyplantandequipment = xbrl_bs_japan_gaap_parser.get_PropertyPlantAndEquipment(self.bs_file_path)
                 current_assets_japan_gaap = xbrl_bs_japan_gaap_parser.get_CurrentAssets(self.bs_file_path)
@@ -226,10 +223,7 @@ class BsDBInserter:
 
                 print(f'日本GAAP BSデータを登録: {code} | {typeofcurrentperioddei} | {fiscal_year}年度')
 
-            print(f'{filename}を登録しました。')
-
-        else:
-            print(f'すでに{filename}は登録されています。')
+        print(f'{filename}を登録しました。')
 
         conn.commit()
         conn.close()
