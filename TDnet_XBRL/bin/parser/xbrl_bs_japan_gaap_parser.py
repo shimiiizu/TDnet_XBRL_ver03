@@ -11,7 +11,9 @@ def _load_soup(xbrl_path):
         return BeautifulSoup(f.read(), 'html.parser')
 
 
-# --- 個別項目 ---
+# ===========================
+#  各 BS 項目取得関数
+# ===========================
 
 def get_CashAndDeposits(xbrl_path):
     soup = _load_soup(xbrl_path)
@@ -47,3 +49,20 @@ def get_NetAssets(xbrl_path):
     soup = _load_soup(xbrl_path)
     tag = find_tag_with_flexible_context(soup, "jppfs_cor:NetAssets", context_type='instant')
     return extract_value_from_tag(tag, xbrl_path, "NetAssets")
+
+
+# ===========================
+#     テスト用コード復活
+# ===========================
+
+if __name__ == '__main__':
+
+    # ★ 元コードにあったテストパスを復元 ★
+    xbrl_path = r"E:\Zip_files\5233\0500000-scbs15-tse-scedjpfr-52330-2025-09-30-01-2025-11-11-ixbrl.htm"
+
+    print(f"現金及び預金: {get_CashAndDeposits(xbrl_path)} 億円")
+    print(f"流動資産: {get_CurrentAssets(xbrl_path)} 億円")
+    print(f"有形固定資産: {get_PropertyPlantAndEquipment(xbrl_path)} 億円")
+    print(f"資産合計: {get_Assets(xbrl_path)} 億円")
+    print(f"利益剰余金: {get_RetainedEarnings(xbrl_path)} 億円")
+    print(f"純資産: {get_NetAssets(xbrl_path)} 億円")
