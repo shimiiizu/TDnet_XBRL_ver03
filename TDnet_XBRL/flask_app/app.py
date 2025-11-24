@@ -171,12 +171,12 @@ def get_companies():
 
 @app.route('/api/bs-data/<company_name>')
 def get_bs_data(company_name):
-    """BSデータを取得（Period/FiscalYearを使用、PublicDayベース）"""
+    """BSデータを取得（FinancialReportType/FiscalYearを使用、PublicDayベース）"""
     conn = get_bs_db_connection()
     rows = conn.execute('''
         SELECT 
             PublicDay,
-            Period,
+            FinancialReportType,
             FiscalYear,
             Assets,
             NetAssets,
@@ -186,7 +186,7 @@ def get_bs_data(company_name):
             RetainedEarnings
         FROM BS 
         WHERE CompanyName = ?
-        ORDER BY FiscalYear, Period
+        ORDER BY FiscalYear, FinancialReportType
     ''', (company_name,)).fetchall()
     conn.close()
 
@@ -195,21 +195,21 @@ def get_bs_data(company_name):
 
     for row in rows:
         fiscal_year = row['FiscalYear']
-        period = row['Period']
+        financial_report_type = row['FinancialReportType']
         public_day = row['PublicDay']
 
         # termフィールドを生成（PLと同じ形式）
-        if fiscal_year and period:
+        if fiscal_year and financial_report_type:
             # 短縮形式: FY2019 → 19
             year_short = str(fiscal_year)[-2:]
-            term_label = f"{year_short} {period}"
+            term_label = f"{year_short} {financial_report_type}"
         else:
-            # Period/FiscalYearがない場合はスキップ
+            # FiscalYear/FinancialReportTypeがない場合はスキップ
             continue
 
         data.append({
             'term': term_label,
-            'period': period,
+            'period': financial_report_type,  # フロントエンドとの互換性のため
             'fiscalYear': fiscal_year,
             'publicDay': public_day,
             'assets': row['Assets'],
@@ -220,7 +220,7 @@ def get_bs_data(company_name):
             'retainedEarnings': row['RetainedEarnings']
         })
 
-    # FiscalYearとPeriodでソート
+    # FiscalYearとFinancialReportTypeでソート
     data.sort(key=lambda x: (x.get('fiscalYear') or 0, period_map.get(x.get('period'), 0)))
 
     print(f"BSデータ取得: {len(data)}件")
