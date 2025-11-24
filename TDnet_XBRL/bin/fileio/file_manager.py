@@ -79,12 +79,16 @@ class FileManager:
     ) -> List[str]:
         """
         BS/PL のファイルリストを取得する統合関数。
+        BSの場合、bs系とfs系の両方を取得する。
 
         Args:
             folder: 企業フォルダ
             statement_type: 'bs' or 'pl'
             period_type: 'annual' / 'quarterly' / 'semiannual'
             consolidation: 'consolidated' or 'standalone'
+
+        Returns:
+            ファイルパスのリスト（bs系 + fs系の順）
         """
 
         from bin.fileio import bs_filelist_maker
@@ -107,8 +111,16 @@ class FileManager:
         code = f"{period_code}{consolidation_code}"
 
         if statement_type == 'bs':
-            method_name = f"get_{code}bs_list"
-            return getattr(bs_filelist_maker, method_name)(str(folder))
+            # bs系ファイルを取得
+            bs_method_name = f"get_{code}bs_list"
+            bs_files = getattr(bs_filelist_maker, bs_method_name)(str(folder))
+
+            # fs系ファイルを取得
+            fs_method_name = f"get_{code}fs_list"
+            fs_files = getattr(bs_filelist_maker, fs_method_name)(str(folder))
+
+            # bs系 + fs系 の順で結合
+            return bs_files + fs_files
 
         else:  # PL
             method_name = f"get_{code}pl_list"
