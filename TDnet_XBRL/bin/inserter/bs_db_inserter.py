@@ -154,7 +154,7 @@ class BsDBInserter:
         conn = sqlite3.connect(self.DB)
         cursor = conn.cursor()
 
-        # テーブル作成（Period カラムを削除）
+        # テーブル作成（Period カラムを削除、created_at を追加）
         cursor.execute('''CREATE TABLE IF NOT EXISTS BS (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             FileName TEXT,
