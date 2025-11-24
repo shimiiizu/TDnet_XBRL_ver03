@@ -183,13 +183,13 @@
 
                 const label = metricNames[activeMetric];
 
-                // 財務データを統一して処理
+                // 財務データを統一して処理（DBの値は億円単位なのでそのまま使用）
                 const financialData = data
                     .filter(d => d.publicDay && d[activeMetric] != null)
                     .sort((a, b) => new Date(a.publicDay) - new Date(b.publicDay))
                     .map(d => ({
                         x: d.publicDay,
-                        y: d[activeMetric],
+                        y: d[activeMetric], // DBは億円単位
                         label: d.term
                     }));
 
@@ -266,7 +266,7 @@
                                 title: { display: true, text: '日付' },
                                 ticks: { maxRotation: 45, minRotation: 45 }
                             },
-                            y: { position: 'left', title: { display: true, text: '金額 (百万円)' } },
+                            y: { position: 'left', title: { display: true, text: '金額 (億円)' } },
                             y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '株価 (円)' } }
                         }
                     }
