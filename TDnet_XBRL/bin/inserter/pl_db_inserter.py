@@ -234,7 +234,7 @@ class PlDBInserter:
 # ============================================================
 if __name__ == '__main__':
     test_files = [
-        r'E:\Zip_files\2471\0102010-scpl27-tse-scediffr-24710-2025-05-31-01-2025-07-11-ixbrl.htm'
+        r'E:\Zip_files\2471\0102010-acpl03-tse-acediffr-24710-2023-11-30-01-2024-02-29-ixbrl.htm'
     ]
 
     for pl_file_path in test_files:

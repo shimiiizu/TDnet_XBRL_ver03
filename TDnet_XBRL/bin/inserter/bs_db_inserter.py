@@ -1,6 +1,6 @@
 """
 データベースにBSデータを保管する
-Period と FiscalYear を追加
+FiscalYear のみ保持（Periodは削除）
 
 """
 
@@ -43,29 +43,20 @@ class BsDBInserter:
         return ns_url.replace('http://', 'http/').replace('/', '_')
 
     # =============================
-    # 補助関数：会計年度開始月
-    # =============================
-    def get_fiscal_start_month(self):
-        fiscal_end_month_map = {
-            '1301': 3,   # 極洋
-            '7203': 3,   # トヨタ
-            '9984': 3,   # ソフトバンク
-            '9501': 3,   # 東京電力
-            '9432': 9,   # NTT
-        }
-        end_month = fiscal_end_month_map.get(self.company_code, 3)
-        return (end_month % 12) + 1
-
-    # =============================
-    # 期間情報抽出（PLと同じロジック）
+    # 期間情報抽出（簡略化版）
     # =============================
     def extract_period_info(self):
+        """
+        会計年度と期間終了日を取得
+        Period は削除し、FiscalYear のみ返す
+        """
         try:
             tree = etree.parse(self.bs_file_path)
             root = tree.getroot()
             namespaces = root.nsmap
 
             period_end_date = None
+            fiscal_year = None
 
             # 1. コンテキストから instant / endDate
             for ctx in root.findall('.//{http://www.xbrl.org/2003/instance}context'):
@@ -77,7 +68,7 @@ class BsDBInserter:
                         break
                     end_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
                     if end_tag is not None and end_tag.text and re.match(r'\d{4}-\d{2}-\d{2}', end_tag.text.strip()):
-                        period_end_date = datetime.strptime(end_tag.text.strip(), '%Y-%m-%d').date()
+                        period_end_date = datetime.strptime(end_tag.strip(), '%Y-%m-%d').date()
                         break
 
             # 2. DocumentPeriodEndDate
@@ -107,25 +98,37 @@ class BsDBInserter:
 
             if not period_end_date:
                 print(f'警告: 期間終了日を特定できませんでした - {self.file_name}')
-                return None, None, None
 
-            # 年度・四半期判定
-            fiscal_start_month = self.get_fiscal_start_month()
-            fiscal_year = period_end_date.year
-            if period_end_date.month < fiscal_start_month:
-                fiscal_year -= 1
+            # 会計年度の取得: CurrentFiscalYearStartDateDEI から年を取得
+            try:
+                fiscal_start_str = xbrl_bs_common_parser.get_CurrentFiscalYearStartDateDEI(self.bs_file_path)
+                if fiscal_start_str and re.match(r'\d{4}-\d{2}-\d{2}', fiscal_start_str):
+                    fiscal_start_date = datetime.strptime(fiscal_start_str, '%Y-%m-%d').date()
+                    fiscal_year = fiscal_start_date.year
+            except:
+                pass
 
-            month_in_fiscal = (period_end_date.month - fiscal_start_month + 12) % 12 + 1
-            period = 'Q1' if month_in_fiscal <= 3 else 'Q2' if month_in_fiscal <= 6 else 'Q3' if month_in_fiscal <= 9 else 'Q4'
+            # フォールバック: CurrentPeriodEndDateDEI から年を取得
+            if fiscal_year is None:
+                try:
+                    end_day_str = xbrl_bs_common_parser.get_CurrentPeriodEndDateDEI(self.bs_file_path)
+                    if end_day_str and re.match(r'\d{4}-\d{2}-\d{2}', end_day_str):
+                        end_date = datetime.strptime(end_day_str, '%Y-%m-%d').date()
+                        fiscal_year = end_date.year
+                except:
+                    pass
 
-            print(f'期間情報: 終了日={period_end_date}, {period}, 年度: {fiscal_year}')
-            return period, fiscal_year, period_end_date
+            if fiscal_year is None:
+                print(f'警告: 会計年度を取得できませんでした - {self.file_name}')
+
+            print(f'期間情報: 終了日={period_end_date}, 年度={fiscal_year}')
+            return fiscal_year, period_end_date
 
         except Exception as e:
             print(f'期間情報抽出エラー: {e}')
             import traceback
             traceback.print_exc()
-            return None, None, None
+            return None, None
 
     def insert_to_bs_db(self):
         accounting_standard = xbrl_bs_common_parser.get_AccountingStandard(self.bs_file_path)
@@ -139,28 +142,20 @@ class BsDBInserter:
         typeofcurrentperioddei = xbrl_bs_common_parser.get_TypeOfCurrentPeriodDEI(self.bs_file_path)
         accountingstandard = xbrl_bs_common_parser.get_AccountingStandard(self.bs_file_path)
 
+        # FY を Q4 に変換
+        if typeofcurrentperioddei == "FY":
+            typeofcurrentperioddei = "Q4"
+
         # 期間情報取得
-        period, fiscal_year, _ = self.extract_period_info()
-        if period is None or fiscal_year is None:
-            print(f'警告: 期間情報が取得できませんでした。デフォルト値を使用します - {filename}')
-            # デフォルト値として、EndDayから推定
-            if currentperiodenddatedei:
-                try:
-                    end_date = datetime.strptime(currentperiodenddatedei, '%Y-%m-%d').date()
-                    fiscal_start_month = self.get_fiscal_start_month()
-                    fiscal_year = end_date.year
-                    if end_date.month < fiscal_start_month:
-                        fiscal_year -= 1
-                    month_in_fiscal = (end_date.month - fiscal_start_month + 12) % 12 + 1
-                    period = 'Q1' if month_in_fiscal <= 3 else 'Q2' if month_in_fiscal <= 6 else 'Q3' if month_in_fiscal <= 9 else 'Q4'
-                except:
-                    period = 'Q4'
-                    fiscal_year = 2020
+        fiscal_year, period_end_date = self.extract_period_info()
+
+        if fiscal_year is None:
+            print(f'警告: 会計年度を取得できませんでした。fiscal_year=None で登録します - {filename}')
 
         conn = sqlite3.connect(self.DB)
         cursor = conn.cursor()
 
-        # テーブル作成時にPeriodとFiscalYearカラムを追加
+        # テーブル作成（Period カラムを削除）
         cursor.execute('''CREATE TABLE IF NOT EXISTS BS (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             FileName TEXT,
@@ -171,7 +166,6 @@ class BsDBInserter:
             PublicDay TEXT,
             StartDay TEXT,
             EndDay TEXT,
-            Period TEXT,
             FiscalYear INTEGER,
             CashAndDeposits REAL,
             CashAndCashEquivalent REAL,
@@ -197,17 +191,17 @@ class BsDBInserter:
 
                 cursor.execute('''INSERT INTO BS 
                 (FileName, CompanyName, Code, FinancialReportType, 
-                AccountingStandard, PublicDay, StartDay, EndDay, Period, FiscalYear,
+                AccountingStandard, PublicDay, StartDay, EndDay, FiscalYear,
                 CashAndCashEquivalent, CurrentAssets, PropertyPlantAndEquipment, 
                 Assets, RetainedEarnings, Equity)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                                (filename, company_name, code, typeofcurrentperioddei,
                                 accountingstandard, public_day, currentfiscalyearstartdatedei,
-                                currentperiodenddatedei, period, fiscal_year,
+                                currentperiodenddatedei, fiscal_year,
                                 cashandcashequivalent_ifrs, current_assets_ifrs,
                                 propertyplantandequipment, assets_ifrs, retainedearningsifrs, equityifrs))
 
-                print(f'IFRS BSデータを登録: {code} | {period} | {fiscal_year}年度')
+                print(f'IFRS BSデータを登録: {code} | {typeofcurrentperioddei} | {fiscal_year}年度')
 
             elif accounting_standard == "Japan GAAP":
                 cashanddeposits = xbrl_bs_japan_gaap_parser.get_CashAndDeposits(self.bs_file_path)
@@ -219,18 +213,18 @@ class BsDBInserter:
 
                 cursor.execute('''INSERT INTO BS 
                 (FileName, CompanyName, Code, FinancialReportType, 
-                AccountingStandard, PublicDay, StartDay, EndDay, Period, FiscalYear,
+                AccountingStandard, PublicDay, StartDay, EndDay, FiscalYear,
                 CashAndDeposits, CurrentAssets, PropertyPlantAndEquipment, 
                 Assets, RetainedEarnings, NetAssets)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                                (filename, company_name, code, typeofcurrentperioddei,
                                 accountingstandard, public_day, currentfiscalyearstartdatedei,
-                                currentperiodenddatedei, period, fiscal_year,
+                                currentperiodenddatedei, fiscal_year,
                                 cashanddeposits, current_assets_japan_gaap,
                                 propertyplantandequipment, assets_japan_gaap,
                                 retainedearnings, netassets))
 
-                print(f'日本GAAP BSデータを登録: {code} | {period} | {fiscal_year}年度')
+                print(f'日本GAAP BSデータを登録: {code} | {typeofcurrentperioddei} | {fiscal_year}年度')
 
             print(f'{filename}を登録しました。')
 
