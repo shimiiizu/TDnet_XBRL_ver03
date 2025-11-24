@@ -43,11 +43,20 @@ class UnifiedXBRLParser(XBRLParser):
     def _detect_statement_type(file_path: str) -> str:
         """
         ファイル名から BS/PL を判別する。
+        bs系（qcbs, acbs等）とfs系（qcfs, acfs等）はBSとして扱う。
         """
         name = Path(file_path).name.lower()
 
+        # BS系ファイル: 'bs' または 'fs' が含まれる（ただしPLは除外）
         if "bs" in name or "balancesheet" in name:
             return "bs"
+
+        # fs系ファイルもBSとして扱う（qcfs, acfs, scfs等）
+        # ただし、'pl' が含まれる場合は除外（plfsなどの誤判定を防ぐ）
+        if "fs" in name and "pl" not in name:
+            return "bs"
+
+        # PL系ファイル
         if "pl" in name or "profitloss" in name:
             return "pl"
 
