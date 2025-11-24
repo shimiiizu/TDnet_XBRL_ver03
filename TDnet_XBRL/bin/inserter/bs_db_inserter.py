@@ -25,8 +25,7 @@ class BsDBInserter:
 
         # プロジェクトのルートディレクトリからの相対パスでDBを指定
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        db_dir = os.path.join(project_root, 'db')
+        db_dir = os.path.join(current_dir, '../..', 'db')
 
         # dbフォルダが存在しない場合は作成
         if not os.path.exists(db_dir):
