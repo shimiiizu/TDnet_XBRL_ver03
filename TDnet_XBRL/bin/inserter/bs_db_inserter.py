@@ -141,9 +141,11 @@ class BsDBInserter:
         typeofcurrentperioddei = xbrl_bs_common_parser.get_TypeOfCurrentPeriodDEI(self.bs_file_path)
         accountingstandard = xbrl_bs_common_parser.get_AccountingStandard(self.bs_file_path)
 
-        # FY を Q4 に変換
+        # FY を Q4 に、HY を Q2 に変換
         if typeofcurrentperioddei == "FY":
             typeofcurrentperioddei = "Q4"
+        elif typeofcurrentperioddei == "HY":
+            typeofcurrentperioddei = "Q2"
 
         # 期間情報取得
         fiscal_year, period_end_date = self.extract_period_info()

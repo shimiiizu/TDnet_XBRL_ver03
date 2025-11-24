@@ -2,6 +2,7 @@
 
 from typing import List
 
+from ..fileio import zipfile_downloader
 from ..fileio.file_manager import FileManager
 from ..parser.unified_parser import UnifiedXBRLParser
 from bin.config.config import Config
@@ -42,7 +43,7 @@ class CompanyDataProcessor:
 
         print(f'{self.code} のZipファイルをダウンロード（必要なら有効化）')
         # import zipfile_downloader
-        # zipfile_downloader.zip_download(self.code)
+        zipfile_downloader.zip_download(self.code)
 
         print(f'{self.code} のフォルダを作成')
         FileManager.create_folder(self.company_folder)
