@@ -6,7 +6,7 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 utils_dir = os.path.join(current_dir, '..', 'utils')
 sys.path.insert(0, utils_dir)
-from xbrl_utils import find_tag_with_flexible_context, extract_value_from_tag
+from bin.utils.xbrl_utils import find_tag_with_flexible_context, extract_value_from_tag
 
 
 # 現金同等額(億円)を取得する関数
