@@ -1,4 +1,4 @@
-# fileio/core/statement_finder.py
+# fileio/core/financial_report_loader.py
 from pathlib import Path
 from typing import List, Literal
 from bin.fileio import bs_filelist_maker, pl_filelist_maker
@@ -25,6 +25,7 @@ def get_statement_files(
     code = _CODE_MAP[(period_type, consolidation)]
     folder_str = str(folder)
 
+    # 諸表タイプに応じた設定
     if statement_type == "bs":
         maker = bs_filelist_maker
         suffixes = ["bs", "fs"]          # この順番が大事！
@@ -32,6 +33,7 @@ def get_statement_files(
         maker = pl_filelist_maker
         suffixes = ["pl"]
 
+    # 動的に関数名を生成して呼び出し
     result: List[str] = []
     for suffix in suffixes:
         method = getattr(maker, f"get_{code}{suffix}_list", None)
