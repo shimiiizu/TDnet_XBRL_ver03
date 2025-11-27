@@ -18,7 +18,7 @@ XBRL処理パイプライン向け ファイル操作ファサード
 from pathlib import Path
 from typing import List, Literal
 
-from .core.basic_operations import (
+from .core.file_operations import (
     delete_files, delete_all_files, create_folder,
     delete_folder, move_zipfiles, unzip_all
 )

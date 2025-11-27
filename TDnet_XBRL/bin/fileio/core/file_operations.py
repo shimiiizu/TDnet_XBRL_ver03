@@ -1,4 +1,4 @@
-# fileio/core/basic_operations.py
+# fileio/core/file_operations.py
 """
 ファイルシステムの基本操作を集約したモジュール
 → 将来的に shutil, os, send2trash などに置き換えてもここだけ修正すればOK
