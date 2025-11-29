@@ -29,7 +29,7 @@ class Config:
         CSV から読み込む場合は from_csv() を使用する。
         """
         return cls(
-            codes=[1911],  # デフォルト企業コード（任意）
+            codes=[1301],  # デフォルト企業コード（任意）
             # CSVを使いたいなら以下に切り替え可能：
             # codes=csv_reader.read_csv('./config/code_list.csv'),
 

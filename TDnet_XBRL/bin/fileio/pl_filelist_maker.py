@@ -4,7 +4,6 @@ qcplは四半期毎の決算、acplは本決算、scplは中間期決算
 """
 import glob
 
-
 def get_acpl_list(folder_path):
     """本決算_連結のPLファイルリストを取得"""
     search_string = 'acpl'
@@ -52,12 +51,12 @@ def get_acpc_list(folder_path):
     matching_files_acpc = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_acpc
 
-def get_acpc_list(folder_path):
+
+def get_qcpc_list(folder_path):
     """本決算_連結のPLファイルリストを取得"""
     search_string = 'qcpc'
     matching_files_qcpc = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_qcpc
-
 
 
 
@@ -117,5 +116,14 @@ if __name__ == '__main__':
         print(f'  {file}')
     print(f'合計: {len(snpl_list)}件')
 
-    print('\n' + '=' * 60)
-    print(f'全PLファイル合計: {len(acpl_list) + len(anpl_list) + len(qcpl_list) + len(qnpl_list) + len(scpl_list) + len(snpl_list)+ len(acpc_list)}件')
+    # 中間期_連結
+    qcpc_list = get_qcpc_list(folder_path)
+    print(f'\n【中間期決算_連結】 qcpc')
+    for file in qcpc_list:
+        print(f'  {file}')
+    print(f'合計: {len(qcpc_list)}件')
+
+    print(f'全PLファイル合計: {len(acpl_list) + len(anpl_list) + len(qcpl_list) + len(qnpl_list) + len(scpl_list) + len(snpl_list)+ len(acpc_list)+ len(qcpc_list)}件')
+
+
+

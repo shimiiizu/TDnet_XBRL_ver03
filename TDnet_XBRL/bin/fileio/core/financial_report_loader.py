@@ -31,7 +31,7 @@ def get_statement_files(
         suffixes = ["bs", "fs"]          # この順番が大事！
     else:
         maker = pl_filelist_maker
-        suffixes = ["pl","qc"]
+        suffixes = ["pl","pc"]
 
     # 動的に関数名を生成して呼び出し
     result: List[str] = []
