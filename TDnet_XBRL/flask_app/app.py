@@ -278,6 +278,16 @@ def get_pl_data(code):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+    print(f"DEBUG: 全データ件数 = {len(data)}")
+    for item in data:
+        if item['fiscalYear'] == 2025:
+            print(f"DEBUG 2025: Period={item['period']}, NetSales={item['netSales']}")
+
+    print(f"DEBUG: 変換後 2025 データ")
+    for item in converted_data:
+        if item.get('_fiscalYear') == 2025:
+            print(f"DEBUG: Q{item.get('_quarter')} = {item}")
+
 
 @app.route('/api/stock-price/<code>')
 def get_stock_price(code):
