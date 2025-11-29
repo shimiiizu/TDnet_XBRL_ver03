@@ -173,7 +173,7 @@ class PlDBInserter:
             inserted = False
 
             # --- IFRS ---
-            if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower():
+            if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower() or 'pc' in self.file_name.lower():
                 print(f'IFRS形式のPLファイルを処理中: {filename}')
 
                 revenueifrs = xbrl_pl_ifrs_parser.get_RevenueIFRS(self.pl_file_path)
@@ -194,7 +194,7 @@ class PlDBInserter:
                 inserted = True
 
             # --- 日本GAAP ---
-            elif 'jpfr' in self.file_name.lower() and 'pl' in self.file_name.lower():
+            elif 'jpfr' in self.file_name.lower() and 'pl' in self.file_name.lower() or 'pc' in self.file_name.lower():
                 print(f'日本GAAP形式のPLファイルを処理中: {filename}')
 
                 netsales = xbrl_pl_japan_gaap_parser.get_NetSales(self.pl_file_path)
