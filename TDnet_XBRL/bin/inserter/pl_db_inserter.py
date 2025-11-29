@@ -172,17 +172,6 @@ class PlDBInserter:
 
             inserted = False
 
-            # ============ ここにデバッグ出力を追加 ============
-            print(f"\n=== デバッグ情報 ===")
-            print(f"ファイル名: {self.file_name}")
-            print(f"小文字変換: {self.file_name.lower()}")
-            print(f"'iffr' 含む: {'iffr' in self.file_name.lower()}")
-            print(f"'jpfr' 含む: {'jpfr' in self.file_name.lower()}")
-            print(f"'pl' 含む: {'pl' in self.file_name.lower()}")
-            print(f"'pc' 含む: {'pc' in self.file_name.lower()}")
-            print(f"====================\n")
-            # ============ ここまで ============
-
 
             # --- IFRS ---
             if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower():
