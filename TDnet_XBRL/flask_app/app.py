@@ -267,6 +267,17 @@ def get_pl_data(code):
             })
 
         converted_data = convert_to_quarterly_from_period(data)
+
+        # ============ デバッグ出力 開始 ============
+        print(f"\nDEBUG: 変換後データ件数 = {len(converted_data)}")
+        print(f"DEBUG: 変換後 2025年度のデータ:")
+        for item in converted_data:
+            if item.get('_fiscalYear') == 2025:
+                print(
+                    f"  Q{item.get('_quarter')}: term={item.get('term')}, netSales={item.get('netSales')}, publicDay={item.get('publicDay')}")
+        print(f"=================================\n")
+        # ============ デバッグ出力 終了 ============
+
         print(f"PLデータ変換: {len(data)}件 → {len(converted_data)}件（四半期ごと）")
         if len(converted_data) > 0:
             print(f"最初のPLデータ: {converted_data[0]}")
@@ -278,15 +289,7 @@ def get_pl_data(code):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-    print(f"DEBUG: 全データ件数 = {len(data)}")
-    for item in data:
-        if item['fiscalYear'] == 2025:
-            print(f"DEBUG 2025: Period={item['period']}, NetSales={item['netSales']}")
 
-    print(f"DEBUG: 変換後 2025 データ")
-    for item in converted_data:
-        if item.get('_fiscalYear') == 2025:
-            print(f"DEBUG: Q{item.get('_quarter')} = {item}")
 
 
 @app.route('/api/stock-price/<code>')
