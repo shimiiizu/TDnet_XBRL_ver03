@@ -52,6 +52,12 @@ def get_acpc_list(folder_path):
     matching_files_acpc = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_acpc
 
+def get_acpc_list(folder_path):
+    """本決算_連結のPLファイルリストを取得"""
+    search_string = 'qcpc'
+    matching_files_qcpc = glob.glob(f'{folder_path}/*{search_string}*')
+    return matching_files_qcpc
+
 
 
 
