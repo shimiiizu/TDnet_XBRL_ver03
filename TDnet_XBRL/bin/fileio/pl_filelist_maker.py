@@ -58,6 +58,17 @@ def get_qcpc_list(folder_path):
     matching_files_qcpc = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_qcpc
 
+def get_scpc_list(folder_path):
+    """中間期決算_連結のPLファイルリストを取得（pc系）"""
+    search_string = 'scpc'
+    matching_files = glob.glob(f'{folder_path}/*{search_string}*')
+    return matching_files
+
+def get_snpc_list(folder_path):
+    """中間期決算_単独のPLファイルリストを取得（pc系）"""
+    search_string = 'snpc'
+    matching_files = glob.glob(f'{folder_path}/*{search_string}*')
+    return matching_files
 
 
 if __name__ == '__main__':
