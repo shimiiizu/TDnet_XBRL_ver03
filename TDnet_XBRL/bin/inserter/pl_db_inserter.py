@@ -172,8 +172,20 @@ class PlDBInserter:
 
             inserted = False
 
+            # ============ ここにデバッグ出力を追加 ============
+            print(f"\n=== デバッグ情報 ===")
+            print(f"ファイル名: {self.file_name}")
+            print(f"小文字変換: {self.file_name.lower()}")
+            print(f"'iffr' 含む: {'iffr' in self.file_name.lower()}")
+            print(f"'jpfr' 含む: {'jpfr' in self.file_name.lower()}")
+            print(f"'pl' 含む: {'pl' in self.file_name.lower()}")
+            print(f"'pc' 含む: {'pc' in self.file_name.lower()}")
+            print(f"====================\n")
+            # ============ ここまで ============
+
+
             # --- IFRS ---
-            if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower() or 'pc' in self.file_name.lower():
+            if 'iffr' in self.file_name.lower() and 'pl' in self.file_name.lower():
                 print(f'IFRS形式のPLファイルを処理中: {filename}')
 
                 revenueifrs = xbrl_pl_ifrs_parser.get_RevenueIFRS(self.pl_file_path)
@@ -193,8 +205,11 @@ class PlDBInserter:
 
                 inserted = True
 
+
+
             # --- 日本GAAP ---
-            elif 'jpfr' in self.file_name.lower() and 'pl' in self.file_name.lower() or 'pc' in self.file_name.lower():
+            elif 'jpfr' in self.file_name.lower() and (
+                    'pl' in self.file_name.lower() or 'pc' in self.file_name.lower()):
                 print(f'日本GAAP形式のPLファイルを処理中: {filename}')
 
                 netsales = xbrl_pl_japan_gaap_parser.get_NetSales(self.pl_file_path)
@@ -234,7 +249,7 @@ class PlDBInserter:
 # ============================================================
 if __name__ == '__main__':
     test_files = [
-        r'E:\Zip_files\2471\0102010-acpl03-tse-acediffr-24710-2023-11-30-01-2024-02-29-ixbrl.htm'
+        r'E:\Zip_files\1301\0301000-acpc01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
     ]
 
     for pl_file_path in test_files:
