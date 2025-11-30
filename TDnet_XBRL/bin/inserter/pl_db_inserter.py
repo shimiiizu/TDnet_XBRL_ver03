@@ -134,7 +134,7 @@ class PlDBInserter:
             # 🔥 会計年度の正しい計算
             fiscal_year = None
 
-            #現状はこの怪しいロジックを使わざるを得ない（本来はここを変更すべき。common_parserに機能を持たせるべき？）
+            # XBRLファイルからは直接取得出来ないため、この怪しいロジックを使わざるを得ない
             if period_start_date:
                 # 開始日が4月以降 → その年が会計年度
                 # 開始日が1-3月 → 前年が会計年度
@@ -142,6 +142,7 @@ class PlDBInserter:
                     fiscal_year = period_start_date.year
                 else:
                     fiscal_year = period_start_date.year - 1
+
             elif period_end_date:
                 # fallback: 終了日から推定（終了日が4-12月なら同年、1-3月なら前年）
                 if period_end_date.month >= 4:
@@ -161,6 +162,36 @@ class PlDBInserter:
             import traceback
             traceback.print_exc()
             return "Unknown", None, None
+
+    def extract_fiscal_year(self):
+        """
+        期間開始日から会計年度を取得する。
+
+        会計年度は期間開始日の年とする。
+        例: 2023-01-01〜2023-12-31 → FY2023
+            2023-04-01〜2024-03-31 → FY2023
+
+        Returns:
+            int: 会計年度（例: 2023）
+                 取得できない場合は None
+        """
+        try:
+            period_start_date, period_end_date = self.extract_period_dates()
+
+            if period_start_date:
+                # 開始日の年がそのまま会計年度
+                return period_start_date.year
+            elif period_end_date:
+                # fallback: 終了日の年を使用（精度は下がる）
+                return period_end_date.year
+            else:
+                return None
+
+        except Exception as e:
+            print(f'会計年度取得エラー: {e}')
+            import traceback
+            traceback.print_exc()
+            return None
 
     # ============================================================
     # DB挿入（重複チェックなし・常に追加）
