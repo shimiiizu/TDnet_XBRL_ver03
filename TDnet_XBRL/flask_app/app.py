@@ -372,7 +372,20 @@ if __name__ == '__main__':
     else:
         print(f"⚠ PL DB なし: {PL_DB_PATH}")
 
+    # テスト実行
     if bs_exists or pl_exists:
+        print("\n=== テストデータ取得 ===")
+        TEST_CODE = '7203'  # テストしたい銘柄コード
+
+        with app.test_client() as client:
+            # PLデータテスト
+            response = client.get(f'/api/pl-data/{TEST_CODE}')
+            print(f"PLデータ: {response.get_json()}")
+
+            # 株価データテスト
+            response = client.get(f'/api/stock-price/{TEST_CODE}')
+            print(f"株価データ件数: {len(response.get_json())}件")
+
         print("\nFlaskサーバー起動中...")
         app.run(debug=True, port=5001)
     else:
