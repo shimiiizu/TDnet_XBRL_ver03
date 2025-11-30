@@ -132,8 +132,9 @@ class PlDBInserter:
                 return "Unknown", None, None
 
             # 🔥 会計年度の正しい計算
-            fiscal_year = None
+            fiscal_year = period_start_date.year
 
+            """
             # XBRLファイルからは直接取得出来ないため、この怪しいロジックを使わざるを得ない
             if period_start_date:
                 # 開始日が4月以降 → その年が会計年度
@@ -152,8 +153,8 @@ class PlDBInserter:
 
 
             # 🔥 HTML本文から四半期を最優先で取得（ここはまったく機能していなそう。）
-            period = self.detect_quarter_from_html()
-
+            period = self.detect_quarter_from_html()            
+            """
             print(f"期間情報: 開始={period_start_date}, 終了={period_end_date}, 四半期={period}, 年度={fiscal_year}")
             return period, fiscal_year, period_end_date
 
@@ -166,9 +167,9 @@ class PlDBInserter:
     # ============================================================
     # fiscal_yearを取得
     # ============================================================
-
+    """
     def extract_fiscal_year(self):
-        """
+        
         期間開始日から会計年度を取得する。
 
         会計年度は期間開始日の年とする。
@@ -178,9 +179,9 @@ class PlDBInserter:
         Returns:
             int: 会計年度（例: 2023）
                  取得できない場合は None
-        """
+        
         try:
-            period_start_date, period_end_date = self.extract_period_dates()
+            period_start_date, period_end_date = self.extract_period_info()
 
             if period_start_date:
                 # 開始日の年がそのまま会計年度
@@ -195,7 +196,7 @@ class PlDBInserter:
             print(f'会計年度取得エラー: {e}')
             import traceback
             traceback.print_exc()
-            return None
+     """
 
     # ============================================================
     # DB挿入（重複チェックなし・常に追加）
