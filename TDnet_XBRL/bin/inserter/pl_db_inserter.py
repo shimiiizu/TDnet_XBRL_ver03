@@ -60,6 +60,8 @@ class PlDBInserter:
         plparser = PlFilenameParser(self.pl_file_path)
         return plparser.get_fiscal_year()
 
+
+    """
     # ============================================================
     # 期間情報抽出（期間開始日・終了日のみ）
     # ============================================================
@@ -145,7 +147,7 @@ class PlDBInserter:
             import traceback
             traceback.print_exc()
             return "Unknown", None, None
-
+    """
     # ============================================================
     # DB挿入（重複チェックなし・常に追加）
     # ============================================================
@@ -155,9 +157,10 @@ class PlDBInserter:
             filename = plparser.get_filename()
             code = plparser.get_code()
             publicday = plparser.get_public_day()
+            fiscal_year = self.receive_fiscal_year_from_pl_filename_parser()
 
             # 期間情報取得
-            period, fiscal_year, _ = self.extract_period_info()
+            #period, fiscal_year, _ = self.extract_period_info()
 
             conn = sqlite3.connect(self.DB)
             cursor = conn.cursor()
