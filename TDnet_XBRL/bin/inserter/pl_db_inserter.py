@@ -97,23 +97,60 @@ class PlDBInserter:
             period_start_date = None
             period_end_date = None
 
-            # contextから期間情報を取得
+            # ===== デバッグ: 全contextを表示 =====
+            print(f"\n【デバッグ】XBRLのcontext情報:")
+            context_count = 0
+
             for ctx in root.findall('.//{http://www.xbrl.org/2003/instance}context'):
-                # 開始日
+                context_count += 1
+                ctx_id = ctx.get('id', 'no-id')
+
+                # 最初の5つだけ詳細表示
+                if context_count <= 5:
+                    print(f"\n  Context {context_count}: id='{ctx_id}'")
+
+                    # 開始日
+                    start_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}startDate')
+                    if start_tag is not None:
+                        print(f"    startDate: {start_tag.text}")
+                    else:
+                        print(f"    startDate: なし")
+
+                    # instant
+                    instant = ctx.find('.//{http://www.xbrl.org/2003/instance}instant')
+                    if instant is not None:
+                        print(f"    instant: {instant.text}")
+                    else:
+                        print(f"    instant: なし")
+
+                    # endDate
+                    end_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}endDate')
+                    if end_tag is not None:
+                        print(f"    endDate: {end_tag.text}")
+                    else:
+                        print(f"    endDate: なし")
+
+                # 実際の取得処理
                 start_tag = ctx.find('.//{http://www.xbrl.org/2003/instance}startDate')
                 if start_tag is not None and start_tag.text:
                     try:
                         period_start_date = datetime.strptime(start_tag.text.strip(), '%Y-%m-%d').date()
-                    except:
-                        pass
+                        if context_count <= 5:
+                            print(f"    → 開始日取得成功: {period_start_date}")
+                    except Exception as e:
+                        if context_count <= 5:
+                            print(f"    → 開始日パースエラー: {e}")
 
                 # 終了日（instant優先）
                 instant = ctx.find('.//{http://www.xbrl.org/2003/instance}instant')
                 if instant is not None and instant.text:
                     try:
                         period_end_date = datetime.strptime(instant.text.strip(), '%Y-%m-%d').date()
-                    except:
-                        pass
+                        if context_count <= 5:
+                            print(f"    → 終了日取得成功(instant): {period_end_date}")
+                    except Exception as e:
+                        if context_count <= 5:
+                            print(f"    → 終了日パースエラー: {e}")
 
                 # 終了日（endDate）
                 if period_end_date is None:
@@ -121,18 +158,28 @@ class PlDBInserter:
                     if end_tag is not None and end_tag.text:
                         try:
                             period_end_date = datetime.strptime(end_tag.text.strip(), '%Y-%m-%d').date()
-                        except:
-                            pass
+                            if context_count <= 5:
+                                print(f"    → 終了日取得成功(endDate): {period_end_date}")
+                        except Exception as e:
+                            if context_count <= 5:
+                                print(f"    → 終了日パースエラー: {e}")
 
                 # 両方取得できたらbreak
                 if period_start_date and period_end_date:
+                    print(f"\n  → Context {context_count} で開始日・終了日が両方取得できたのでループ終了")
                     break
+
+            print(f"\n  合計 {context_count} 個のcontextを検査")
+            print(f"  最終結果: 開始日={period_start_date}, 終了日={period_end_date}")
+            print(f"=" * 60)
+            # ===== デバッグ終了 =====
 
             # ファイル名からfallback（終了日のみ）
             if period_end_date is None:
                 m = re.search(r'(\d{4}-\d{2}-\d{2})', self.file_name)
                 if m:
                     period_end_date = datetime.strptime(m.group(1), '%Y-%m-%d').date()
+                    print(f"ファイル名から終了日を取得: {period_end_date}")
 
             return period_start_date, period_end_date
 
@@ -141,7 +188,6 @@ class PlDBInserter:
             import traceback
             traceback.print_exc()
             return None, None
-
     # ============================================================
     # 会計年度を取得
     # ============================================================
