@@ -133,7 +133,8 @@ class PlDBInserter:
 
             # 🔥 会計年度の正しい計算
             fiscal_year = None
-            """
+
+            #現状はこの怪しいロジックを使わざるを得ない（本来はここを変更すべき。common_parserに機能を持たせるべき？）
             if period_start_date:
                 # 開始日が4月以降 → その年が会計年度
                 # 開始日が1-3月 → 前年が会計年度
@@ -147,9 +148,9 @@ class PlDBInserter:
                     fiscal_year = period_end_date.year
                 else:
                     fiscal_year = period_end_date.year - 1
-            """
 
-            # 🔥 HTML本文から四半期を最優先で取得
+
+            # 🔥 HTML本文から四半期を最優先で取得（ここはまったく機能していなそう。）
             period = self.detect_quarter_from_html()
 
             print(f"期間情報: 開始={period_start_date}, 終了={period_end_date}, 四半期={period}, 年度={fiscal_year}")
