@@ -133,6 +133,7 @@ class PlDBInserter:
 
             # 🔥 会計年度の正しい計算
             fiscal_year = None
+            """
             if period_start_date:
                 # 開始日が4月以降 → その年が会計年度
                 # 開始日が1-3月 → 前年が会計年度
@@ -146,6 +147,7 @@ class PlDBInserter:
                     fiscal_year = period_end_date.year
                 else:
                     fiscal_year = period_end_date.year - 1
+            """
 
             # 🔥 HTML本文から四半期を最優先で取得
             period = self.detect_quarter_from_html()
@@ -276,5 +278,21 @@ if __name__ == '__main__':
             print(f'{"=" * 60}')
             inserter = PlDBInserter(pl_file_path)
             inserter.insert_to_pl_db()
+
+            # ===== テスト: 期間情報を取得して表示 =====
+            print(f'\n【テスト】期間情報の取得')
+            period, fiscal_year, end_date = inserter.extract_period_info()
+            print(f'  四半期: {period}')
+            print(f'  会計年度: {fiscal_year}')
+            print(f'  期間終了日: {end_date}')
+
+            # 期待値との比較
+            print(f'\n【検証】')
+            print(f'  ファイル名: {inserter.file_name}')
+            print(f'  ファイル名から推測される終了日: 2016-03-31')
+            print(f'  期待される会計年度: 2015 (2015年4月〜2016年3月)')
+            print(f'  実際の会計年度: {fiscal_year}')
+
+
         else:
             print(f'ファイルが見つかりません: {pl_file_path}')
