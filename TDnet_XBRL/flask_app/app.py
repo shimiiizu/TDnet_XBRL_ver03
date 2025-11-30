@@ -265,15 +265,36 @@ def get_pl_data(code):
                 'ordinaryIncome': row['OrdinaryIncome'],
                 'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
             })
+
         # ===== ここにデバッグ追加 =====
-        print(f"\n=== 変換前の生データ（2025年度のみ）===")
+        print(f"\n=== 変換前の生データ ===")
         print(f"総データ件数: {len(data)}件")
+
+        # 2024年度
+        print(f"\n【2024年度】")
+        for item in data:
+            if item.get('fiscalYear') == '2024':
+                print(f"  {item.get('period')}: netSales={item.get('netSales')}, publicDay={item.get('publicDay')}")
+
+        # 2025年度
+        print(f"\n【2025年度】")
         for item in data:
             if item.get('fiscalYear') == '2025':
-                print(f"  {item}")
+                print(f"  {item.get('period')}: netSales={item.get('netSales')}, publicDay={item.get('publicDay')}")
+
+        # 各年度のPeriod構成を確認
+        from collections import defaultdict
+        year_periods = defaultdict(list)
+        for item in data:
+            year_periods[item.get('fiscalYear')].append(item.get('period'))
+
+        print(f"\n【年度ごとのPeriod構成】")
+        for year in sorted(year_periods.keys()):
+            periods = year_periods[year]
+            print(f"  {year}年度: {periods}")
+
         print("=" * 50)
         # ===== デバッグ終了 =====
-
 
         converted_data = convert_to_quarterly_from_period(data)
 
