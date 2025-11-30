@@ -4,7 +4,7 @@
 # ・ファイル名
 # ・開示日
 # ・四半期（本文の日本語「当第○四半期」を直接解析）
-# ・年度（期間開始日から正しく算出）
+# ・年度（期間開始日から算出）
 # ・PLの主要項目（IFRS / 日本基準両対応）
 # を抽出してSQLiteデータベースへ登録するツールです。
 #
@@ -80,9 +80,16 @@ class PlDBInserter:
         return "Unknown"
 
     # ============================================================
-    # 期間情報抽出（期間開始日・終了日と本文四半期）
+    # 期間情報抽出（期間開始日・終了日のみ）
     # ============================================================
-    def extract_period_info(self):
+    def extract_period_dates(self):
+        """
+        XBRLから期間の開始日と終了日を取得する。
+
+        Returns:
+            tuple: (period_start_date, period_end_date)
+                   取得できない場合は (None, None)
+        """
         try:
             tree = etree.parse(self.pl_file_path)
             root = tree.getroot()
@@ -127,49 +134,19 @@ class PlDBInserter:
                 if m:
                     period_end_date = datetime.strptime(m.group(1), '%Y-%m-%d').date()
 
-            if not period_end_date:
-                print(f"警告: 期間終了日が取得できませんでした: {self.file_name}")
-                return "Unknown", None, None
-
-            # 🔥 会計年度の正しい計算
-            fiscal_year = period_start_date.year
-
-            """
-            # XBRLファイルからは直接取得出来ないため、この怪しいロジックを使わざるを得ない
-            if period_start_date:
-                # 開始日が4月以降 → その年が会計年度
-                # 開始日が1-3月 → 前年が会計年度
-                if period_start_date.month >= 4:
-                    fiscal_year = period_start_date.year
-                else:
-                    fiscal_year = period_start_date.year - 1
-
-            elif period_end_date:
-                # fallback: 終了日から推定（終了日が4-12月なら同年、1-3月なら前年）
-                if period_end_date.month >= 4:
-                    fiscal_year = period_end_date.year
-                else:
-                    fiscal_year = period_end_date.year - 1
-
-
-            # 🔥 HTML本文から四半期を最優先で取得（ここはまったく機能していなそう。）
-            period = self.detect_quarter_from_html()            
-            """
-            print(f"期間情報: 開始={period_start_date}, 終了={period_end_date}, 四半期={period}, 年度={fiscal_year}")
-            return period, fiscal_year, period_end_date
+            return period_start_date, period_end_date
 
         except Exception as e:
-            print(f'期間情報抽出エラー: {e}')
+            print(f'期間日付取得エラー: {e}')
             import traceback
             traceback.print_exc()
-            return "Unknown", None, None
+            return None, None
 
     # ============================================================
-    # fiscal_yearを取得
+    # 会計年度を取得
     # ============================================================
-    """
     def extract_fiscal_year(self):
-        
+        """
         期間開始日から会計年度を取得する。
 
         会計年度は期間開始日の年とする。
@@ -179,9 +156,9 @@ class PlDBInserter:
         Returns:
             int: 会計年度（例: 2023）
                  取得できない場合は None
-        
+        """
         try:
-            period_start_date, period_end_date = self.extract_period_info()
+            period_start_date, period_end_date = self.extract_period_dates()
 
             if period_start_date:
                 # 開始日の年がそのまま会計年度
@@ -196,7 +173,40 @@ class PlDBInserter:
             print(f'会計年度取得エラー: {e}')
             import traceback
             traceback.print_exc()
-     """
+            return None
+
+    # ============================================================
+    # 期間情報を統合して取得（後方互換性のため）
+    # ============================================================
+    def extract_period_info(self):
+        """
+        期間情報を統合して取得する。
+
+        Returns:
+            tuple: (period, fiscal_year, period_end_date)
+        """
+        try:
+            # 期間日付を取得
+            period_start_date, period_end_date = self.extract_period_dates()
+
+            if not period_end_date:
+                print(f"警告: 期間終了日が取得できませんでした: {self.file_name}")
+                return "Unknown", None, None
+
+            # 四半期を取得
+            period = self.detect_quarter_from_html()
+
+            # 会計年度を取得
+            fiscal_year = self.extract_fiscal_year()
+
+            print(f"期間情報: 開始={period_start_date}, 終了={period_end_date}, 四半期={period}, 年度={fiscal_year}")
+            return period, fiscal_year, period_end_date
+
+        except Exception as e:
+            print(f'期間情報抽出エラー: {e}')
+            import traceback
+            traceback.print_exc()
+            return "Unknown", None, None
 
     # ============================================================
     # DB挿入（重複チェックなし・常に追加）
@@ -209,9 +219,7 @@ class PlDBInserter:
             publicday = plparser.get_public_day()
 
             # 期間情報取得
-            #period, fiscal_year, _ = self.extract_period_info()
-            period= self.extract_period_info()
-            fiscal_year = self.extract_fiscal_year()
+            period, fiscal_year, _ = self.extract_period_info()
 
             conn = sqlite3.connect(self.DB)
             cursor = conn.cursor()
@@ -316,14 +324,13 @@ if __name__ == '__main__':
             print(f'処理開始: {pl_file_path}')
             print(f'{"=" * 60}')
             inserter = PlDBInserter(pl_file_path)
+
+            # DB登録
             inserter.insert_to_pl_db()
 
             # ===== テスト: 期間情報を取得して表示 =====
             print(f'\n【テスト】期間情報の取得')
-            #period, fiscal_year, end_date = inserter.extract_period_info()
-            period,  end_date = inserter.extract_period_info()
-            fiscal_year = inserter.extract_fiscal_year()
-
+            period, fiscal_year, end_date = inserter.extract_period_info()
             print(f'  四半期: {period}')
             print(f'  会計年度: {fiscal_year}')
             print(f'  期間終了日: {end_date}')
@@ -335,6 +342,10 @@ if __name__ == '__main__':
             print(f'  期待される会計年度: 2015 (2015年4月〜2016年3月)')
             print(f'  実際の会計年度: {fiscal_year}')
 
+            if fiscal_year == 2015:
+                print(f'  ✅ 会計年度が正しく取得できています')
+            else:
+                print(f'  ❌ 会計年度が間違っています (期待: 2015, 実際: {fiscal_year})')
 
         else:
             print(f'ファイルが見つかりません: {pl_file_path}')
