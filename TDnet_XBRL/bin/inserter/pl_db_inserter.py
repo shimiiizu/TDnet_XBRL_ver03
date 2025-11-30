@@ -84,82 +84,32 @@ class PlDBInserter:
     # ============================================================
     def extract_period_dates(self):
         """
-        XBRLのcontextから開始日(startDate)と終了日(instant/endDate)を安定的に取得する。
-
-        Returns:
-            tuple(period_start_date, period_end_date)
-            どちらか取得できない場合は None が入る
+        期間開始日・終了日を XBRL解析せず、ファイル名から直接取得する。
+        ルール:
+            - 最初の YYYY-MM-DD → 期間開始日
+            - 2番目の YYYY-MM-DD → 期間終了日
+            - ファイル名に日付が2つ未満なら エラー扱いとし処理を停止する
         """
-
         try:
-            tree = etree.parse(self.pl_file_path)
-            root = tree.getroot()
+            # ファイル名から YYYY-MM-DD をすべて抽出
+            dates = re.findall(r'\d{4}-\d{2}-\d{2}', self.file_name)
 
-            period_start_date = None
-            period_end_date = None
+            # 日付が2つ未満ならエラー扱い
+            if len(dates) < 2:
+                raise ValueError(
+                    f"ファイル名から開始日と終了日を判別できません（日付が2つ未満）: {self.file_name}"
+                )
 
-            # XBRL instance namespace
-            ns = {"x": "http://www.xbrl.org/2003/instance"}
+            # 1つ目 → 開始日、2つ目 → 終了日
+            period_start_date = datetime.strptime(dates[0], '%Y-%m-%d').date()
+            period_end_date = datetime.strptime(dates[1], '%Y-%m-%d').date()
 
-            contexts = root.findall(".//x:context", ns)
-
-            print(f"[extract_period_dates] context数: {len(contexts)}")
-
-            for ctx in contexts:
-                ctx_id = ctx.get("id", "no-id")
-
-                # ----- startDate -----
-                if period_start_date is None:
-                    start_tag = ctx.find(".//x:startDate", ns)
-                    if start_tag is not None and start_tag.text:
-                        try:
-                            period_start_date = datetime.strptime(start_tag.text.strip(), "%Y-%m-%d").date()
-                            print(f"  ✔ 開始日取得: {period_start_date}  (context: {ctx_id})")
-                        except Exception:
-                            pass
-
-                # ----- instant or endDate -----
-                if period_end_date is None:
-                    # instant優先
-                    instant_tag = ctx.find(".//x:instant", ns)
-                    if instant_tag is not None and instant_tag.text:
-                        try:
-                            period_end_date = datetime.strptime(instant_tag.text.strip(), "%Y-%m-%d").date()
-                            print(f"  ✔ 終了日取得(instant): {period_end_date}  (context: {ctx_id})")
-                        except Exception:
-                            pass
-
-                    # instantが無い場合は endDate
-                    if period_end_date is None:
-                        end_tag = ctx.find(".//x:endDate", ns)
-                        if end_tag is not None and end_tag.text:
-                            try:
-                                period_end_date = datetime.strptime(end_tag.text.strip(), "%Y-%m-%d").date()
-                                print(f"  ✔ 終了日取得(endDate): {period_end_date}  (context: {ctx_id})")
-                            except Exception:
-                                pass
-
-                # ----- 両方揃ったら終了 -----
-                if period_start_date and period_end_date:
-                    print("  → 開始日と終了日が揃ったためループ終了")
-                    break
-
-            print(f"[extract_period_dates] 最終結果: start={period_start_date}, end={period_end_date}")
-
-            # ファイル名フォールバック（終了日のみ）
-            if period_end_date is None:
-                m = re.search(r"(\d{4}-\d{2}-\d{2})", self.file_name)
-                if m:
-                    period_end_date = datetime.strptime(m.group(1), "%Y-%m-%d").date()
-                    print(f"  ⚠ contextから終了日取得に失敗したため、ファイル名から推定: {period_end_date}")
-
+            print(f"[extract_period_dates] 開始日={period_start_date}, 終了日={period_end_date}")
             return period_start_date, period_end_date
 
         except Exception as e:
             print(f"[extract_period_dates] エラー: {e}")
-            import traceback
-            traceback.print_exc()
-            return None, None
+            raise  # ④の仕様どおり処理中断
 
     # ============================================================
     # 会計年度を取得
