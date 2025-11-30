@@ -265,6 +265,15 @@ def get_pl_data(code):
                 'ordinaryIncome': row['OrdinaryIncome'],
                 'netIncome': row['NetIncome'] or row['ProfitLossIFRS']
             })
+        # ===== ここにデバッグ追加 =====
+        print(f"\n=== 変換前の生データ（2025年度のみ）===")
+        print(f"総データ件数: {len(data)}件")
+        for item in data:
+            if item.get('fiscalYear') == '2025':
+                print(f"  {item}")
+        print("=" * 50)
+        # ===== デバッグ終了 =====
+
 
         converted_data = convert_to_quarterly_from_period(data)
 
@@ -375,7 +384,7 @@ if __name__ == '__main__':
     # テスト実行
     if bs_exists or pl_exists:
         print("\n=== テストデータ取得 ===")
-        TEST_CODE = '7203'  # テストしたい銘柄コード
+        TEST_CODE = '5233'  # テストしたい銘柄コード
 
         with app.test_client() as client:
             # PLデータテスト
