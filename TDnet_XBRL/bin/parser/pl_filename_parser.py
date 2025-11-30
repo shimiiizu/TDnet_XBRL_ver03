@@ -40,6 +40,16 @@ class PlFilenameParser:
         else:
             print("公表日が見つかりませんでした。")
 
+    def get_fiscal_year(self):
+        """ファイル名から会計年度（最初の日付の年）を取得"""
+        pattern = r'(\d{4})-\d{2}-\d{2}'
+        matches = re.findall(pattern, self.file_name)
+        if matches:
+            return int(matches[0])  # 最初の日付の年
+        else:
+            print("会計年度が見つかりませんでした。")
+            return None
+
 
 
 if __name__ == '__main__':

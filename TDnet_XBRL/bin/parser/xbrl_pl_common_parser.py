@@ -13,6 +13,12 @@ def get_quarter(xbrl_path):
     return quarter
 
 
+
+
+
+
+
+
 if __name__ == '__main__':
     xbrl_path = r"E:\Zip_files\2471\0102010-qcpl13-tse-qcediffr-24710-2025-08-31-01-2025-10-14-ixbrl.htm"
     print(get_quarter(xbrl_path))
