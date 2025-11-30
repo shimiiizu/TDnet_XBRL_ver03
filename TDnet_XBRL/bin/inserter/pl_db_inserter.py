@@ -163,6 +163,10 @@ class PlDBInserter:
             traceback.print_exc()
             return "Unknown", None, None
 
+    # ============================================================
+    # fiscal_yearを取得
+    # ============================================================
+
     def extract_fiscal_year(self):
         """
         期間開始日から会計年度を取得する。
@@ -204,7 +208,9 @@ class PlDBInserter:
             publicday = plparser.get_public_day()
 
             # 期間情報取得
-            period, fiscal_year, _ = self.extract_period_info()
+            #period, fiscal_year, _ = self.extract_period_info()
+            period= self.extract_period_info()
+            fiscal_year = self.extract_fiscal_year()
 
             conn = sqlite3.connect(self.DB)
             cursor = conn.cursor()
@@ -313,7 +319,10 @@ if __name__ == '__main__':
 
             # ===== テスト: 期間情報を取得して表示 =====
             print(f'\n【テスト】期間情報の取得')
-            period, fiscal_year, end_date = inserter.extract_period_info()
+            #period, fiscal_year, end_date = inserter.extract_period_info()
+            period,  end_date = inserter.extract_period_info()
+            fiscal_year = inserter.extract_fiscal_year()
+
             print(f'  四半期: {period}')
             print(f'  会計年度: {fiscal_year}')
             print(f'  期間終了日: {end_date}')
