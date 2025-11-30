@@ -294,6 +294,12 @@ def get_pl_data(code):
             print(f"  {year}年度: {periods}")
 
         print("=" * 50)
+
+        print(f"\n【Q4データの詳細確認（直近3年分）】")
+        for item in data:
+            if item.get('period') == 'Q4' and item.get('fiscalYear') in ['2023', '2024', '2025']:
+                print(
+                    f"  FY{item.get('fiscalYear')} Q4: publicDay={item.get('publicDay')}, netSales={item.get('netSales')}")
         # ===== デバッグ終了 =====
 
         converted_data = convert_to_quarterly_from_period(data)
