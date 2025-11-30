@@ -41,11 +41,25 @@ class PlDBInserter:
         print(f'データベースパス: {self.DB}')
 
     # ============================================================
-    # HTML本文から四半期（Q1〜Q4）を抽出
+    # 四半期（Q1〜Q4）をxbrl_pl_common_parserから受け取る
     # ============================================================
-    def detect_quarter_from_html(self):
-        """四半期を取得（xbrl_pl_common_parserに委譲）"""
+    def receive_quarter_from_xbrl_pl_common_parser(self):
         return xbrl_pl_common_parser.detect_quarter_from_html(self.pl_file_path)
+
+    # ============================================================
+    # 公表日（Public_Day）をpl_filename_parserから受け取る
+    # ============================================================
+    def receive_public_day_from_pl_filename_parser(self):
+        plparser = PlFilenameParser(self.pl_file_path)
+        return plparser.get_public_day()
+
+    # ============================================================
+    # 会計年度（Fiscal_Year）をpl_filename_parserから受け取る
+    # ============================================================
+    def receive_fiscal_year_from_pl_filename_parser(self):
+        plparser = PlFilenameParser(self.pl_file_path)
+        return plparser.get_fiscal_year()
+
     # ============================================================
     # 期間情報抽出（期間開始日・終了日のみ）
     # ============================================================
@@ -118,7 +132,7 @@ class PlDBInserter:
                 return "Unknown", None, None
 
             # 四半期を取得
-            period = self.detect_quarter_from_html()
+            period = self.receive_quarter_from_xbrl_pl_common_parser()
 
             # 会計年度を取得
             fiscal_year = self.extract_fiscal_year()
