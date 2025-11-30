@@ -116,24 +116,12 @@ class PlDBInserter:
     # ============================================================
     def extract_fiscal_year(self):
         """
-        期間開始日から会計年度を取得する。
-
-        会計年度は期間開始日の年とする。
-        例: 2023-01-01〜2023-12-31 → FY2023
-            2023-04-01〜2024-03-31 → FY2023
-
-        Returns:
-            int: 会計年度（例: 2023）
-                 取得できない場合は None
+        期間終了日から会計年度を取得する。
         """
         try:
             period_start_date, period_end_date = self.extract_period_dates()
 
-            if period_start_date:
-                # 開始日の年がそのまま会計年度
-                return period_start_date.year
-            elif period_end_date:
-                # fallback: 終了日の年を使用（精度は下がる）
+            if period_end_date:
                 return period_end_date.year
             else:
                 return None
@@ -296,25 +284,6 @@ if __name__ == '__main__':
 
             # DB登録
             inserter.insert_to_pl_db()
-
-            # ===== テスト: 期間情報を取得して表示 =====
-            print(f'\n【テスト】期間情報の取得')
-            period, fiscal_year, end_date = inserter.extract_period_info()
-            print(f'  四半期: {period}')
-            print(f'  会計年度: {fiscal_year}')
-            print(f'  期間終了日: {end_date}')
-
-            # 期待値との比較
-            print(f'\n【検証】')
-            print(f'  ファイル名: {inserter.file_name}')
-            print(f'  ファイル名から推測される終了日: 2016-03-31')
-            print(f'  期待される会計年度: 2015 (2015年4月〜2016年3月)')
-            print(f'  実際の会計年度: {fiscal_year}')
-
-            if fiscal_year == 2015:
-                print(f'  ✅ 会計年度が正しく取得できています')
-            else:
-                print(f'  ❌ 会計年度が間違っています (期待: 2015, 実際: {fiscal_year})')
 
         else:
             print(f'ファイルが見つかりません: {pl_file_path}')
