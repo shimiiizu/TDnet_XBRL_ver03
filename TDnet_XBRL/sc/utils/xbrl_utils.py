@@ -104,18 +104,8 @@ def extract_value_from_tag(tag, file_path, field_name, decimals_target=-8):
         print(f"エラー: {field_name} の抽出中にエラーが発生 - {file_path}: {e}")
         return None
 
+"""
 def extract_per_share_value(tag, file_path, field_name):
-    """
-    1株当たり情報（EPS等）を抽出する関数
-
-    Args:
-        tag: BeautifulSoupのタグオブジェクト
-        file_path: ファイルパス（エラーメッセージ用）
-        field_name: フィールド名（エラーメッセージ用）
-
-    Returns:
-        小数点以下2桁の数値、または None
-    """
     try:
         if not tag:
             print(f"警告: {field_name} のタグが見つかりませんでした - {file_path}")
@@ -131,3 +121,4 @@ def extract_per_share_value(tag, file_path, field_name):
     except Exception as e:
         print(f"エラー: {field_name} の抽出中にエラーが発生 - {file_path}: {e}")
         return None
+"""
