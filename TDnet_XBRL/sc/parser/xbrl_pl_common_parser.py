@@ -38,7 +38,7 @@ def detect_quarter_from_html(xbrl_path):
             return "Q2"
 
         # 優先順位3: 「当連結」または「当単独」を検出 → Q4
-        if re.search(r'当\s*連結', html_text) or re.search(r'当\s*単独', html_text):
+        if re.search(r'当\s*連結', html_text) or re.search(r'当\s*単独', html_text) or re.search(r'当\s*事業', html_text):
             return "Q4"
 
     except Exception as e:

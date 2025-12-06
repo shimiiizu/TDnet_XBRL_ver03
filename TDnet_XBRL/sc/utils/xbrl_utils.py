@@ -35,18 +35,31 @@ def find_tag_with_flexible_context(soup, tag_name, context_type='instant'):
             "CurrentYTDDuration",
             "InterimDuration",
             "CurrentYearDuration_NonConsolidatedMember",
-            "CurrentQuarterDuration_NonConsolidatedMember"
+            "CurrentQuarterDuration_NonConsolidatedMember",
+            "CurrentYTDDuration_NonConsolidatedMember",
+            "Prior1YTDDuration_NonConsolidatedMember",
         ]
     else:
         raise ValueError(f"Invalid context_type: {context_type}")
 
+    # タグタイプのリスト（大文字小文字両方対応）
+    tag_types = ["ix:nonfraction", "ix:nonFraction", "ix:nonNumeric"]
+
     # 候補を順番に試す
-    for contextref in contextref_candidates:
-        tag = soup.find("ix:nonfraction", attrs={
-            "contextref": contextref,
-            "name": tag_name
-        })
+    for tag_type in tag_types:
+        for contextref in contextref_candidates:
+            tag = soup.find(tag_type, attrs={
+                "contextref": contextref,
+                "name": tag_name
+            })
+            if tag:
+                return tag
+
+    # contextref なしでも探してみる（最終手段）
+    for tag_type in tag_types:
+        tag = soup.find(tag_type, attrs={"name": tag_name})
         if tag:
+            print(f"警告: contextref なしで {tag_name} を発見")
             return tag
 
     return None
@@ -90,7 +103,6 @@ def extract_value_from_tag(tag, file_path, field_name, decimals_target=-8):
     except Exception as e:
         print(f"エラー: {field_name} の抽出中にエラーが発生 - {file_path}: {e}")
         return None
-
 
 def extract_per_share_value(tag, file_path, field_name):
     """

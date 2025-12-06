@@ -93,7 +93,7 @@ def get_NetIncome(xbrl_path):
 
 if __name__ == '__main__':
     # テスト用
-    xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\7172\0102010-acpl01-tse-acedjpfr-71720-2014-12-31-01-2015-02-12-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\1429\1300000-snpl16-tse-snedjpfr-14290-2025-06-30-01-2025-08-08-ixbrl.htm"
 
     print(f'売上: {get_NetSales(xbrl_path)}')
     print(f'販管費: {get_SellingGeneralAndAdministrativeExpenses(xbrl_path)}')
