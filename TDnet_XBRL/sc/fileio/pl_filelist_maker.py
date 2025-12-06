@@ -10,12 +10,17 @@ def get_acpl_list(folder_path):
     matching_files_acpl = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_acpl
 
-
 def get_anpl_list(folder_path):
     """本決算_単独のPLファイルリストを取得"""
     search_string = 'anpl'
     matching_files_anpl = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_anpl
+
+def get_anpc_list(folder_path):
+    """本決算_単独のPLファイルリストを取得"""
+    search_string = 'anpc'
+    matching_files_anpc = glob.glob(f'{folder_path}/*{search_string}*')
+    return matching_files_anpc
 
 
 def get_qcpl_list(folder_path):
@@ -24,20 +29,17 @@ def get_qcpl_list(folder_path):
     matching_files_qcpl = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_qcpl
 
-
 def get_qnpl_list(folder_path):
     """四半期決算_単独のPLファイルリストを取得"""
     search_string = 'qnpl'
     matching_files_qnpl = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_qnpl
 
-
 def get_scpl_list(folder_path):
     """中間期決算_連結のPLファイルリストを取得"""
     search_string = 'scpl'
     matching_files_scpl = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_scpl
-
 
 def get_snpl_list(folder_path):
     """中間期決算_単独のPLファイルリストを取得"""
@@ -50,7 +52,6 @@ def get_acpc_list(folder_path):
     search_string = 'acpc'
     matching_files_acpc = glob.glob(f'{folder_path}/*{search_string}*')
     return matching_files_acpc
-
 
 def get_qcpc_list(folder_path):
     """本決算_連結のPLファイルリストを取得"""
