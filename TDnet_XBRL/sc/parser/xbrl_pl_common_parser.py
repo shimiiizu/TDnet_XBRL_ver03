@@ -5,15 +5,6 @@ import re
 # Fiscal_Yearを取得する関数（←取得できない）
 
 
-def get_quarter(xbrl_path):
-    with open(xbrl_path, 'r', encoding='utf-8') as f:
-        html_content = f.read()
-    soup = BeautifulSoup(html_content, 'html.parser')
-    tag = soup.find("ix:nonnumeric", attrs={"contextref": "CurrentYTDDuration", "name": "jpcrp_cor:YearToQuarterEndConsolidatedStatementOfIncomeTextBlock"})
-    quarter = tag.text
-    return quarter
-
-
 def detect_quarter_from_html(xbrl_path):
     """
     XBRL本文から四半期情報を抽出して返す。
@@ -58,5 +49,7 @@ def detect_quarter_from_html(xbrl_path):
 
 
 if __name__ == '__main__':
-    xbrl_path = r"E:\Zip_files\2471\0102010-qcpl13-tse-qcediffr-24710-2025-08-31-01-2025-10-14-ixbrl.htm"
-    print(get_quarter(xbrl_path))
+    #xbrl_path = r"E:\Zip_files\1301\0303000-acss01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\1429\0501000-anpl02-tse-anedjpfr-14290-2015-12-31-01-2016-02-08-ixbrl.htm"
+
+    print(detect_quarter_from_html(xbrl_path))
