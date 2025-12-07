@@ -115,7 +115,8 @@ def get_EquityIFRS(xbrl_path):
 
 
 if __name__ == '__main__':
-    xbrl_path = r"E:\Zip_files\2471/0101010-qcfs03-tse-qcediffr-24710-2024-02-29-01-2024-04-12-ixbrl.htm"
+    #xbrl_path = r"E:\Zip_files\2471/0101010-qcfs03-tse-qcediffr-24710-2024-02-29-01-2024-04-12-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\4612/0102010-acbs03-tse-acediffr-46120-2024-12-31-01-2025-02-14-ixbrl.htm"
 
     print("=== IFRS BS データ取得テスト ===")
     print(f"CashAndCashEquivalent: {get_CashAndCashEquivalent(xbrl_path)}")

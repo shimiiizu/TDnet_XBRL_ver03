@@ -1,6 +1,6 @@
 """
 file nameから情報を抜き出す
-情報：企業コード/公表日
+情報：ファイル名/企業コード/公表日
 
 """
 import os
@@ -42,10 +42,13 @@ class BsFilenameParser:
 
 
 if __name__ == '__main__':
-    bs_file_path = r'C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\2780\0101010-acbs01-tse-acedjpfr-27800-2014-03-31-02-2014-10-10-ixbrl.htm'
+    #bs_file_path = r'C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\2780\0101010-acbs01-tse-acedjpfr-27800-2014-03-31-02-2014-10-10-ixbrl.htm'
+    bs_file_path = r'E:\Zip_files\4612\0102010-acbs03-tse-acediffr-46120-2020-12-31-01-2021-02-10-ixbrl.htm'
     bsfilenameparser = BsFilenameParser(bs_file_path)
+    bsfilenameparser.get_filename()
     bsfilenameparser.get_code()
     bsfilenameparser.get_public_day()
+    print(f'ファイル名は{bsfilenameparser.get_filename()}です。')
     print(f'企業コードは{bsfilenameparser.get_code()}です。')
     print(f'公表日は{bsfilenameparser.get_public_day()}です。')
 

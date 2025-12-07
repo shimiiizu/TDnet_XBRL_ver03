@@ -220,5 +220,5 @@ if __name__ == "__main__":
     eps_tag_value = extract_per_share_value(tag_eps, xbrl_path, "EPS")
     print("EPS（タグから取得）:", eps_tag_value)
 
-    eps_table_value = find_value_in_table(soup, ["希薄化後１株当たり四半期利益","希薄化後1株当たり利益", "希薄化後１株当たり利益", "1株当たり利益", "１株当たり利益","基本的１株当たり四半期利益"], is_eps=True)
+    eps_table_value = find_value_in_table(soup, ["希薄化後１株当たり四半期利益","希薄化後1株当たり利益", "希薄化後１株当たり利益", "1株当たり利益", "１株当たり利益"], is_eps=True)
     print("EPS（表から取得）:", eps_table_value)
