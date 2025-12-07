@@ -104,7 +104,7 @@ def extract_value_from_tag(tag, file_path, field_name, decimals_target=-8):
         print(f"エラー: {field_name} の抽出中にエラーが発生 - {file_path}: {e}")
         return None
 
-"""
+
 def extract_per_share_value(tag, file_path, field_name):
     try:
         if not tag:
@@ -121,4 +121,49 @@ def extract_per_share_value(tag, file_path, field_name):
     except Exception as e:
         print(f"エラー: {field_name} の抽出中にエラーが発生 - {file_path}: {e}")
         return None
-"""
+
+# ★ fallback: XBRLタグが無い場合、表から値を抽出
+def find_value_in_table(soup, label_candidates, is_eps=False):
+    """
+    HTML表から財務数値を抽出する汎用関数。
+
+    ◆ 対応機能
+      - 売上収益のようなラベル行に対応
+      - 右端の当期列を自動抽出（182,694 → OK）
+      - △表記の負数対応
+      - 百万円 → 億円への換算（EPSは換算しない）
+    """
+    print(f"表から値を抽出を試みます。... ラベル候補: {label_candidates}")
+    rows = soup.find_all("tr")
+    for row in rows:
+        cells = row.find_all(["td", "th"])
+        if not cells:
+            continue
+
+        # 1列目テキストが候補ラベルに一致する行を探す
+        first_text = cells[0].get_text(strip=True)
+        if not any(label in first_text for label in label_candidates):
+            continue
+
+        # 数値候補をすべて抽出し、最も右側（当期）を採用
+        num_candidates = []
+        for cell in cells:
+            raw = cell.get_text(strip=True)
+            cleaned = raw.replace(",", "").replace("△", "-")
+            # 数値判定
+            if cleaned.isdigit() or (cleaned.startswith("-") and cleaned[1:].isdigit()):
+                num_candidates.append(cleaned)
+
+        if not num_candidates:
+            return None
+
+        # 最右列（当期）を採用
+        value = float(num_candidates[-1])
+
+        # 単位換算
+        if not is_eps:
+            value = value / 100.0  # 百万円 → 億円
+
+        return value
+
+    return None

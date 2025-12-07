@@ -1,72 +1,22 @@
 from bs4 import BeautifulSoup
-import os
-
-
-def _safe_get_value(tag, decimals_target=-8):
-    """
-    タグから値を安全に取得する汎用関数
-
-    Args:
-        tag: BeautifulSoupのタグオブジェクト
-        decimals_target: 目標の単位（-8=億円）
-
-    Returns:
-        変換後の数値、または取得できない場合はNone
-    """
-    if tag is None:
-        return None
-
-    try:
-        decimals_value = tag.get("decimals")
-        if decimals_value is None:
-            return None
-
-        decimals_value = int(decimals_value)
-        exchange_ratio = 10 ** (decimals_target - decimals_value)
-
-        value_text = tag.text.strip()
-        if not value_text or value_text == '-':
-            return None
-
-        value = int(value_text.replace(",", ""))
-        result = round(value * exchange_ratio, 1)
-        return result
-    except Exception as e:
-        print(f"値の変換エラー: {e}")
-        return None
-
-
-def _get_contextref(file_name):
-    """ファイル名からcontextrefを決定"""
-    if 'ac' in file_name:
-        return "CurrentYearDuration"
-    elif 'qcpl13' in file_name or 'scpl27' in file_name:
-        return "CurrentYTDDuration"
-    elif 'qcpl23' in file_name:
-        return "CurrentQuarterDuration"
-    elif 'an' in file_name:
-        return "CurrentYearDuration_NonConsolidatedMember"
-    elif 'qn' in file_name:
-        return "CurrentQuarterDuration_NonConsolidatedMember"
-    else:
-        return "CurrentYearDuration"  # デフォルト
+from sc.utils.xbrl_utils import find_tag_with_flexible_context, extract_value_from_tag, extract_per_share_value, find_value_in_table
 
 
 # 売上(億円)を取得する関数
 def get_RevenueIFRS(xbrl_path):
     try:
-        file_name = os.path.basename(xbrl_path)
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        contextref = _get_contextref(file_name)
-        tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jpigp_cor:RevenueIFRS"})
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:RevenueIFRS", context_type='duration')
+        value = extract_value_from_tag(tag, xbrl_path, "RevenueIFRS")
 
-        result = _safe_get_value(tag)
-        if result is None:
-            print(f'警告: RevenueIFRSを取得できませんでした - {file_name}')
-        return result
+        # タグが見つからない場合、表形式で探す
+        if value is None:
+            value = find_value_in_table(soup, ["売上収益", "売上高", "売上", "収益"])
+        return value
+
     except Exception as e:
         print(f'エラー: RevenueIFRS取得失敗 - {xbrl_path}: {e}')
         return None
@@ -75,19 +25,13 @@ def get_RevenueIFRS(xbrl_path):
 # 販売費及び一般管理費(億円)を取得する関数
 def get_SellingGeneralAndAdministrativeExpensesIFRS(xbrl_path):
     try:
-        file_name = os.path.basename(xbrl_path)
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        contextref = _get_contextref(file_name)
-        tag = soup.find("ix:nonfraction", attrs={"contextref": contextref,
-                                                 "name": "jpigp_cor:SellingGeneralAndAdministrativeExpensesIFRS"})
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:SellingGeneralAndAdministrativeExpensesIFRS", context_type='duration')
+        return extract_value_from_tag(tag, xbrl_path, "SellingGeneralAndAdministrativeExpensesIFRS")
 
-        result = _safe_get_value(tag)
-        if result is None:
-            print(f'警告: SellingGeneralAndAdministrativeExpensesIFRSを取得できませんでした - {file_name}')
-        return result
     except Exception as e:
         print(f'エラー: SellingGeneralAndAdministrativeExpensesIFRS取得失敗 - {xbrl_path}: {e}')
         return None
@@ -96,18 +40,13 @@ def get_SellingGeneralAndAdministrativeExpensesIFRS(xbrl_path):
 # 営業利益(億円)を取得する関数
 def get_OperatingProfitLossIFRS(xbrl_path):
     try:
-        file_name = os.path.basename(xbrl_path)
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        contextref = _get_contextref(file_name)
-        tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jpigp_cor:OperatingProfitLossIFRS"})
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:OperatingProfitLossIFRS", context_type='duration')
+        return extract_value_from_tag(tag, xbrl_path, "OperatingProfitLossIFRS")
 
-        result = _safe_get_value(tag)
-        if result is None:
-            print(f'警告: OperatingProfitLossIFRSを取得できませんでした - {file_name}')
-        return result
     except Exception as e:
         print(f'エラー: OperatingProfitLossIFRS取得失敗 - {xbrl_path}: {e}')
         return None
@@ -116,18 +55,13 @@ def get_OperatingProfitLossIFRS(xbrl_path):
 # 四半期利益(億円)を取得する関数
 def get_ProfitLossIFRS(xbrl_path):
     try:
-        file_name = os.path.basename(xbrl_path)
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        contextref = _get_contextref(file_name)
-        tag = soup.find("ix:nonfraction", attrs={"contextref": contextref, "name": "jpigp_cor:ProfitLossIFRS"})
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:ProfitLossIFRS", context_type='duration')
+        return extract_value_from_tag(tag, xbrl_path, "ProfitLossIFRS")
 
-        result = _safe_get_value(tag)
-        if result is None:
-            print(f'警告: ProfitLossIFRSを取得できませんでした - {file_name}')
-        return result
     except Exception as e:
         print(f'エラー: ProfitLossIFRS取得失敗 - {xbrl_path}: {e}')
         return None
@@ -136,26 +70,13 @@ def get_ProfitLossIFRS(xbrl_path):
 # 希薄化後１株当たり四半期利益を取得する関数
 def get_DilutedEarningsLossPerShareIFRS(xbrl_path):
     try:
-        file_name = os.path.basename(xbrl_path)
         with open(xbrl_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        contextref = _get_contextref(file_name)
-        tag = soup.find("ix:nonfraction",
-                        attrs={"contextref": contextref, "name": "jpigp_cor:DilutedEarningsLossPerShareIFRS"})
+        tag = find_tag_with_flexible_context(soup, "jpigp_cor:DilutedEarningsLossPerShareIFRS", context_type='duration')
+        return extract_per_share_value(tag, xbrl_path, "DilutedEarningsLossPerShareIFRS")
 
-        if tag is None:
-            print(f'警告: DilutedEarningsLossPerShareIFRSを取得できませんでした - {file_name}')
-            return None
-
-        try:
-            value_text = tag.text.strip()
-            if not value_text or value_text == '-':
-                return None
-            return round(float(value_text.replace(",", "")), 2)
-        except:
-            return None
     except Exception as e:
         print(f'エラー: DilutedEarningsLossPerShareIFRS取得失敗 - {xbrl_path}: {e}')
         return None
@@ -163,7 +84,7 @@ def get_DilutedEarningsLossPerShareIFRS(xbrl_path):
 
 if __name__ == '__main__':
     # テスト用
-    xbrl_path = r"C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\4183\0102010-acpl03-tse-acediffr-41830-2021-03-31-01-2021-05-13-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\4612\0600000-qcpl23-tse-qcediffr-46120-2019-09-30-01-2019-11-14-ixbrl.htm"
 
     print(f'売上: {get_RevenueIFRS(xbrl_path)}')
     print(f'販管費: {get_SellingGeneralAndAdministrativeExpensesIFRS(xbrl_path)}')

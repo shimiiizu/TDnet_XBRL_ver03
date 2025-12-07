@@ -281,9 +281,8 @@ class PlDBInserter:
 # テスト実行
 # ============================================================
 if __name__ == '__main__':
-    test_files = [
-        r'E:\Zip_files\1301\0301000-acpc01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm'
-    ]
+    #test_files = [r'E:\Zip_files\1301\0301000-acpc01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm']
+    test_files = [r'E:\Zip_files\4612\0101020-scpl37-tse-scediffr-46120-2024-06-30-01-2024-08-08-ixbrl.htm']
 
     for pl_file_path in test_files:
         if os.path.exists(pl_file_path):
