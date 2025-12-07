@@ -1,7 +1,7 @@
 # parser/unified_parser.py
 
 from pathlib import Path
-from ..parser.base_parser import XBRLParser
+from sc.parser.base_parser import XBRLParser
 
 
 class UnifiedXBRLParser(XBRLParser):
@@ -97,3 +97,17 @@ class UnifiedXBRLParser(XBRLParser):
         from sc.inserter.pl_db_inserter import PlDBInserter
         inserter = PlDBInserter(file_path)
         inserter.insert_to_pl_db()
+
+if __name__ == "__main__":
+    # テストコード
+    parser = UnifiedXBRLParser()
+
+    test_files = [
+        r"E:\Zip_files\1301\0300000-acbs01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm"  # BSファイル
+    ]
+
+    for file in test_files:
+        print(f"Parsing file: {file}")
+        parser.parse(file)
+        parser.save_to_db(file)
+        print(f"Finished processing file: {file}\n")
