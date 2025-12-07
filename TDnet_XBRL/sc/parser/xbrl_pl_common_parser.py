@@ -4,6 +4,21 @@ import re
 # 会社名を取得する関数(←取得できない)
 # Fiscal_Yearを取得する関数（←取得できない）
 
+def get_company_name(xbrl_path):
+    try:
+        with open(xbrl_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        soup = BeautifulSoup(html_content, 'html.parser')
+        element = soup.find("ix:nonnumeric", attrs={"name": "jpdei_cor:FilerNameInJapaneseDEI"})
+
+        if element is None:
+            print(f"警告: {xbrl_path} で会社名が見つかりませんでした。")
+            return "不明"
+
+        return element.text
+    except Exception as e:
+        print(f"エラー: 会社名の取得に失敗しました: {e}")
+        return "不明"
 
 def detect_quarter_from_html(xbrl_path):
     """
@@ -50,6 +65,8 @@ def detect_quarter_from_html(xbrl_path):
 
 if __name__ == '__main__':
     #xbrl_path = r"E:\Zip_files\1301\0303000-acss01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm"
-    xbrl_path = r"E:\Zip_files\1429\0501000-anpl02-tse-anedjpfr-14290-2015-12-31-01-2016-02-08-ixbrl.htm"
+    xbrl_path = r"E:\Zip_files\3679\0300000-acbs01-tse-acedjpfr-36790-2015-03-31-01-2015-05-15-ixbrl.htm" # じげん
+    #xbrl_path = r"E:\Zip_files\4612\0102010-acbs03-tse-acediffr-46120-2020-12-31-01-2021-02-10-ixbrl.htm"
 
+    print(get_company_name(xbrl_path))
     print(detect_quarter_from_html(xbrl_path))

@@ -33,3 +33,9 @@ class XBRLProcessingSystem:
                 continue
 
         print("=== 全てのXBRL処理が完了しました ===")
+
+if __name__ == "__main__":
+    # テスト実行用コード（必要に応じて削除可能）
+    config = Config.from_defaults()
+    system = XBRLProcessingSystem(config)
+    system.run()
