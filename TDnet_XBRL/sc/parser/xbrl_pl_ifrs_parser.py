@@ -30,7 +30,12 @@ def get_SellingGeneralAndAdministrativeExpensesIFRS(xbrl_path):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         tag = find_tag_with_flexible_context(soup, "jpigp_cor:SellingGeneralAndAdministrativeExpensesIFRS", context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "SellingGeneralAndAdministrativeExpensesIFRS")
+        value = extract_value_from_tag(tag, xbrl_path, "SellingGeneralAndAdministrativeExpensesIFRS")
+
+        # タグが見つからない場合、表形式で探す
+        if value is None:
+            value = find_value_in_table(soup, ["販売費及び一般管理費", "販売費", "一般管理費"])
+        return value
 
     except Exception as e:
         print(f'エラー: SellingGeneralAndAdministrativeExpensesIFRS取得失敗 - {xbrl_path}: {e}')
@@ -45,7 +50,12 @@ def get_OperatingProfitLossIFRS(xbrl_path):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         tag = find_tag_with_flexible_context(soup, "jpigp_cor:OperatingProfitLossIFRS", context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "OperatingProfitLossIFRS")
+        value = extract_value_from_tag(tag, xbrl_path, "OperatingProfitLossIFRS")
+
+        # タグが見つからない場合、表形式で探す
+        if value is None:
+            value = find_value_in_table(soup, ["営業利益", "営業"])
+        return value
 
     except Exception as e:
         print(f'エラー: OperatingProfitLossIFRS取得失敗 - {xbrl_path}: {e}')
@@ -60,7 +70,12 @@ def get_ProfitLossIFRS(xbrl_path):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         tag = find_tag_with_flexible_context(soup, "jpigp_cor:ProfitLossIFRS", context_type='duration')
-        return extract_value_from_tag(tag, xbrl_path, "ProfitLossIFRS")
+        value = extract_value_from_tag(tag, xbrl_path, "ProfitLossIFRS")
+
+        # タグが見つからない場合、表形式で探す
+        if value is None:
+            value = find_value_in_table(soup, ["四半期利益", "損益", "当期利益", "当期純利益", "純利益"])
+        return value
 
     except Exception as e:
         print(f'エラー: ProfitLossIFRS取得失敗 - {xbrl_path}: {e}')
@@ -75,7 +90,13 @@ def get_DilutedEarningsLossPerShareIFRS(xbrl_path):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         tag = find_tag_with_flexible_context(soup, "jpigp_cor:DilutedEarningsLossPerShareIFRS", context_type='duration')
-        return extract_per_share_value(tag, xbrl_path, "DilutedEarningsLossPerShareIFRS")
+        value = extract_per_share_value(tag, xbrl_path, "DilutedEarningsLossPerShareIFRS")
+
+        # タグが見つからない場合、表形式で探す
+        if value is None:
+            value = find_value_in_table(soup, ["希薄化後１株当たり四半期利益","希薄化後1株当たり利益", "希薄化後１株当たり利益", "1株当たり利益", "１株当たり利益"])
+        return value
+
 
     except Exception as e:
         print(f'エラー: DilutedEarningsLossPerShareIFRS取得失敗 - {xbrl_path}: {e}')

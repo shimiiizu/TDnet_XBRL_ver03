@@ -2,7 +2,7 @@
 XBRL解析用の共通ユーティリティ関数
 BS/PL両方で使用する
 """
-
+from bs4 import BeautifulSoup
 
 def find_tag_with_flexible_context(soup, tag_name, context_type='instant'):
     """
@@ -163,7 +163,57 @@ def find_value_in_table(soup, label_candidates, is_eps=False):
         # 単位換算
         if not is_eps:
             value = value / 100.0  # 百万円 → 億円
-
+        else:
+            value = value   # 円
         return value
 
-    return None
+    #return None
+
+if __name__ == "__main__":
+    import os
+    from bs4 import BeautifulSoup
+
+    # 実ファイルの絶対パス
+    xbrl_path = r"E:\Zip_files\4612\0600000-qcpl23-tse-qcediffr-46120-2019-09-30-01-2019-11-14-ixbrl.htm"
+    print(f"解析対象ファイル: {os.path.abspath(xbrl_path)}")
+
+    try:
+        with open(xbrl_path, "r", encoding="utf-8") as f:
+            html = f.read()
+    except Exception as e:
+        print(f"ファイルを開けませんでした: {xbrl_path} - {e}")
+        exit(1)
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    # --- 売上収益 ---
+    tag_sales = find_tag_with_flexible_context(soup, "jpigp_cor:RevenueIFRS", context_type="duration")
+    sales_tag_value = extract_value_from_tag(tag_sales, xbrl_path, "RevenueIFRS")
+    print("売上収益（タグから取得）:", sales_tag_value)
+
+    sales_table_value = find_value_in_table(soup, ["売上収益"], is_eps=False)
+    print("売上収益（表から取得）:", sales_table_value)
+
+    # --- 営業利益 ---
+    tag_op = find_tag_with_flexible_context(soup, "jpigp_cor:OperatingProfitLossIFRS", context_type="duration")
+    op_tag_value = extract_value_from_tag(tag_op, xbrl_path, "OperatingProfitLossIFRS")
+    print("営業利益（タグから取得）:", op_tag_value)
+
+    op_table_value = find_value_in_table(soup, ["営業利益"], is_eps=False)
+    print("営業利益（表から取得）:", op_table_value)
+
+    # --- 純利益 ---
+    tag_pl = find_tag_with_flexible_context(soup, "jpigp_cor:ProfitLossIFRS", context_type="duration")
+    pl_tag_value = extract_value_from_tag(tag_pl, xbrl_path, "ProfitLossIFRS")
+    print("純利益（タグから取得）:", pl_tag_value)
+
+    pl_table_value = find_value_in_table(soup, ["当期純利益", "純利益"], is_eps=False)
+    print("純利益（表から取得）:", pl_table_value)
+
+    # --- EPS ---
+    tag_eps = find_tag_with_flexible_context(soup, "jpigp_cor:DilutedEarningsLossPerShareIFRS", context_type="duration")
+    eps_tag_value = extract_per_share_value(tag_eps, xbrl_path, "EPS")
+    print("EPS（タグから取得）:", eps_tag_value)
+
+    eps_table_value = find_value_in_table(soup, ["1株当たり当期純利益", "EPS"], is_eps=True)
+    print("EPS（表から取得）:", eps_table_value)
