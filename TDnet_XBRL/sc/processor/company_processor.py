@@ -1,10 +1,9 @@
 # processor/company_processor.py
 
 from typing import List
-
-from ..fileio import zipfile_downloader
-from ..fileio.file_manager import FileManager
-from ..parser.unified_parser import UnifiedXBRLParser
+from sc.fileio import zipfile_downloader
+from sc.fileio.file_manager import FileManager
+from sc.parser.unified_parser import UnifiedXBRLParser
 from sc.config.config import Config
 
 
@@ -125,3 +124,9 @@ class CompanyDataProcessor:
             'quarterly': '四半期',
             'semiannual': '中間期'
         }[period]
+
+if __name__ == '__main__':
+    # テスト実行用コード（必要に応じて削除可能）
+    config = Config.from_defaults()
+    processor = CompanyDataProcessor(3679, config)
+    processor.process()
