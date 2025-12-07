@@ -150,8 +150,10 @@ def find_value_in_table(soup, label_candidates, is_eps=False):
         for cell in cells:
             raw = cell.get_text(strip=True)
             cleaned = raw.replace(",", "").replace("△", "-")
-            # 数値判定
-            if cleaned.isdigit() or (cleaned.startswith("-") and cleaned[1:].isdigit()):
+
+            # 数値判定部分を修正
+            if cleaned.replace(".", "", 1).isdigit() or \
+                    (cleaned.startswith("-") and cleaned[1:].replace(".", "", 1).isdigit()):
                 num_candidates.append(cleaned)
 
         if not num_candidates:
@@ -193,6 +195,7 @@ if __name__ == "__main__":
 
     sales_table_value = find_value_in_table(soup, ["売上収益"], is_eps=False)
     print("売上収益（表から取得）:", sales_table_value)
+    print('------------------------------')
 
     # --- 営業利益 ---
     tag_op = find_tag_with_flexible_context(soup, "jpigp_cor:OperatingProfitLossIFRS", context_type="duration")
@@ -201,19 +204,21 @@ if __name__ == "__main__":
 
     op_table_value = find_value_in_table(soup, ["営業利益"], is_eps=False)
     print("営業利益（表から取得）:", op_table_value)
+    print('------------------------------')
 
     # --- 純利益 ---
     tag_pl = find_tag_with_flexible_context(soup, "jpigp_cor:ProfitLossIFRS", context_type="duration")
     pl_tag_value = extract_value_from_tag(tag_pl, xbrl_path, "ProfitLossIFRS")
     print("純利益（タグから取得）:", pl_tag_value)
 
-    pl_table_value = find_value_in_table(soup, ["当期純利益", "純利益"], is_eps=False)
+    pl_table_value = find_value_in_table(soup, ["四半期利益", "損益", "当期利益", "当期純利益", "純利益"], is_eps=False)
     print("純利益（表から取得）:", pl_table_value)
+    print('------------------------------')
 
     # --- EPS ---
     tag_eps = find_tag_with_flexible_context(soup, "jpigp_cor:DilutedEarningsLossPerShareIFRS", context_type="duration")
     eps_tag_value = extract_per_share_value(tag_eps, xbrl_path, "EPS")
     print("EPS（タグから取得）:", eps_tag_value)
 
-    eps_table_value = find_value_in_table(soup, ["1株当たり当期純利益", "EPS"], is_eps=True)
+    eps_table_value = find_value_in_table(soup, ["希薄化後１株当たり四半期利益","希薄化後1株当たり利益", "希薄化後１株当たり利益", "1株当たり利益", "１株当たり利益","基本的１株当たり四半期利益"], is_eps=True)
     print("EPS（表から取得）:", eps_table_value)
