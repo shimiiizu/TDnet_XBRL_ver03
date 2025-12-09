@@ -80,12 +80,12 @@ def extract_value_from_tag(tag, file_path, field_name, decimals_target=-8):
     """
     try:
         if not tag:
-            print(f"警告: {field_name} のタグが見つかりませんでした - {file_path}")
+            print(f"警告: {field_name} のタグが見つかりませんでした")
             return None
 
         decimals_value = tag.get("decimals")
         if decimals_value is None:
-            print(f"警告: {field_name} の decimals 属性がありません - {file_path}")
+            print(f"警告: {field_name} の decimals 属性がありません")
             return None
 
         decimals_value = int(decimals_value)
@@ -108,7 +108,7 @@ def extract_value_from_tag(tag, file_path, field_name, decimals_target=-8):
 def extract_per_share_value(tag, file_path, field_name):
     try:
         if not tag:
-            print(f"警告: {field_name} のタグが見つかりませんでした - {file_path}")
+            print(f"警告: {field_name} のタグが見つかりませんでした")
             return None
 
         value_text = tag.text.strip()
