@@ -15,6 +15,7 @@ def get_RevenueIFRS(xbrl_path):
         # タグが見つからない場合、表形式で探す
         if value is None:
             value = find_value_in_table(soup, ["売上収益", "売上高", "売上", "収益"])
+            print(f'表形式からRevenueIFRSを取得しました - {value}')
         return value
 
     except Exception as e:
@@ -35,6 +36,7 @@ def get_SellingGeneralAndAdministrativeExpensesIFRS(xbrl_path):
         # タグが見つからない場合、表形式で探す
         if value is None:
             value = find_value_in_table(soup, ["販売費及び一般管理費", "販売費", "一般管理費"])
+            print(f'表形式からSellingGeneralAndAdministrativeExpensesIFRSを取得しました - {value}')
         return value
 
     except Exception as e:
@@ -55,6 +57,7 @@ def get_OperatingProfitLossIFRS(xbrl_path):
         # タグが見つからない場合、表形式で探す
         if value is None:
             value = find_value_in_table(soup, ["営業利益", "営業"])
+            print(f'表形式からOperatingProfitLossIFRSを取得しました - {value}')
         return value
 
     except Exception as e:
@@ -75,6 +78,7 @@ def get_ProfitLossIFRS(xbrl_path):
         # タグが見つからない場合、表形式で探す
         if value is None:
             value = find_value_in_table(soup, ["四半期利益", "損益", "当期利益", "当期純利益", "純利益"])
+            print(f'表形式からProfitLossIFRSを取得しました - {value}')
         return value
 
     except Exception as e:
@@ -95,6 +99,7 @@ def get_DilutedEarningsLossPerShareIFRS(xbrl_path):
         # タグが見つからない場合、表形式で探す
         if value is None:
             value = find_value_in_table(soup, ["希薄化後１株当たり四半期利益","希薄化後1株当たり利益", "希薄化後１株当たり利益", "1株当たり利益", "１株当たり利益"])
+            print(f'表形式からDilutedEarningsLossPerShareIFRSを取得しました - {value}')
         return value
 
 

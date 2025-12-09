@@ -105,6 +105,7 @@ def get_AccountingStandard(xbrl_path):
 if __name__ == '__main__':
     #xbrl_path = r"C:\Users\Shimizu\PycharmProjects\TDnet_XBRL\TDnet_XBRL\zip_files\9163\0300000-acbs03-tse-acediffr-91630-2023-10-31-01-2023-12-13-ixbrl.htm"
     xbrl_path = (r"E:\Zip_files\4612\0102010-acbs03-tse-acediffr-46120-2020-12-31-01-2021-02-10-ixbrl.htm")
+    #xbrl_path = (r"E:\Zip_files\3679\0300000-acbs01-tse-acedjpfr-36790-2016-03-31-01-2016-05-13-ixbrl.htm")
 
     print(f"会社名: {get_company_name(xbrl_path)}")
     print(f"決算開始日: {get_CurrentFiscalYearStartDateDEI(xbrl_path)}")

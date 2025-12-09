@@ -231,6 +231,7 @@ class BsDBInserter:
 
 
 if __name__ == '__main__':
-    bs_file_path = r'C:\Users\Shimizu\PycharmProjects\TDnet_XBRL\TDnet_XBRL\zip_files\2780\0101010-acbs01-tse-acedjpfr-27800-2014-03-31-02-2014-10-10-ixbrl.htm'
+    #bs_file_path = r'C:\Users\Shimizu\PycharmProjects\TDnet_XBRL\TDnet_XBRL\zip_files\2780\0101010-acbs01-tse-acedjpfr-27800-2014-03-31-02-2014-10-10-ixbrl.htm'
+    bs_file_path = r'E:\Zip_files\3679\0300000-acbs03-tse-acediffr-36790-2022-03-31-01-2022-05-13-ixbrl.htm'
     bsdbinserter = BsDBInserter(bs_file_path)
     bsdbinserter.insert_to_bs_db()

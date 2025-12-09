@@ -103,7 +103,8 @@ if __name__ == "__main__":
     parser = UnifiedXBRLParser()
 
     test_files = [
-        r"E:\Zip_files\1301\0300000-acbs01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm"  # BSファイル
+        #r"E:\Zip_files\1301\0300000-acbs01-tse-acedjpfr-13010-2016-03-31-01-2016-05-09-ixbrl.htm"  # BSファイル
+        r"E:\Zip_files\4612\0102010-acbs03-tse-acediffr-46120-2024-12-31-01-2025-02-14-ixbrl.htm"  # BSファイル
     ]
 
     for file in test_files:
