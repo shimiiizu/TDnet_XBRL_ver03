@@ -1,65 +1,100 @@
 """
-file nameから企業コードを抜き出す
-
+file nameから企業コードや日付情報を抜き出す
+ログ強化版
 """
+
 import os
 import re
 
 
 class PlFilenameParser:
+
     def __init__(self, pl_file_path):
+        print(f"[CALL] PlFilenameParser.__init__(pl_file_path={pl_file_path})")
         self.pl_file_path = pl_file_path
         self.file_name = os.path.basename(pl_file_path)
+        print(f"[INFO] filename={self.file_name}")
 
+    # ------------------------------------------------------------
+    # ファイル名取得
+    # ------------------------------------------------------------
     def get_filename(self):
+        print("[CALL] get_filename()")
         filename = self.file_name
+        print(f"[RETURN] get_filename -> {filename}")
         return filename
 
+    # ------------------------------------------------------------
+    # 企業コード取得
+    # ------------------------------------------------------------
     def get_code(self):
-        pattern = r'-([0-9]{5})-'                   # 正規表現パターンを定義
-        match = re.search(pattern, self.file_name)  # パターンに一致する部分を検索
+        print("[CALL] get_code()")
+
+        pattern = r'-([0-9]{5})-'
+        match = re.search(pattern, self.file_name)
+
         if match:
-            extracted_part = match.group(1)
+            extracted = match.group(1)
+            print(f"[INFO] 正規表現一致 code={extracted}")
 
-            if extracted_part.endswith('0'):
-                extracted_part = extracted_part[:-1]
-                return extracted_part
+            # 末尾が 0 の場合は削る（例：12340 → 1234）
+            if extracted.endswith("0"):
+                modified = extracted[:-1]
+                print(f"[INFO] 末尾0削除 -> {modified}")
+                print(f"[RETURN] get_code -> {modified}")
+                return modified
 
-            else:
-                return extracted_part
-        else:
-            print("codeが見つかりませんでした。")
+            print(f"[RETURN] get_code -> {extracted}")
+            return extracted
 
+        print("[WARN] get_code -> codeが見つかりませんでした")
+        return None
+
+    # ------------------------------------------------------------
+    # 公表日取得（最後の日付）
+    # ------------------------------------------------------------
     def get_public_day(self):
+        print("[CALL] get_public_day()")
+
         pattern = r'(\d{4}-\d{2}-\d{2})'
         matches = re.findall(pattern, self.file_name)
-        if matches:
-            extracted_date = matches[-1]  # 最後の一致を取得
-            return extracted_date
-        else:
-            print("公表日が見つかりませんでした。")
 
+        if matches:
+            extracted = matches[-1]
+            print(f"[INFO] 公表日候補: {matches}")
+            print(f"[RETURN] get_public_day -> {extracted}")
+            return extracted
+
+        print("[WARN] get_public_day -> 公表日が見つかりませんでした")
+        return None
+
+    # ------------------------------------------------------------
+    # 期間終了日取得（最初の日付）
+    # ------------------------------------------------------------
     def get_period_end_date(self):
-        """
-        期間終了日（最初の日付）を取得
+        print("[CALL] get_period_end_date()")
 
-        Returns:
-            str: 期間終了日（例: "2016-06-30"）
-                 取得できない場合は None
-        """
         pattern = r'(\d{4}-\d{2}-\d{2})'
         matches = re.findall(pattern, self.file_name)
+
         if matches:
-            return matches[0]  # 最初の日付
-        else:
-            print("期間終了日が見つかりませんでした。")
-            return None
+            extracted = matches[0]
+            print(f"[INFO] 期間終了日候補: {matches}")
+            print(f"[RETURN] get_period_end_date -> {extracted}")
+            return extracted
+
+        print("[WARN] get_period_end_date -> 期間終了日が見つかりませんでした")
+        return None
 
 
+# ------------------------------------------------------------
+# テストコード
+# ------------------------------------------------------------
 if __name__ == '__main__':
     pl_file_path = r'C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\3679\0600000-qcpl11-tse-qcedjpfr-36790-2014-06-30-01-2014-08-12-ixbrl.htm'
-    plfilenameparser = PlFilenameParser(pl_file_path)
-    print('filename :', plfilenameparser.get_filename())
-    print('code :', plfilenameparser.get_code())
-    print('public_day :', plfilenameparser.get_public_day())
-    print('period_end_date :', plfilenameparser.get_period_end_date())
+    parser = PlFilenameParser(pl_file_path)
+
+    print('filename :', parser.get_filename())
+    print('code :', parser.get_code())
+    print('public_day :', parser.get_public_day())
+    print('period_end_date :', parser.get_period_end_date())

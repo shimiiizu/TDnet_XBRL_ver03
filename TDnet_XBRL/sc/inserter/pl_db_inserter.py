@@ -1,7 +1,7 @@
 # ============================================================
 # このプログラムは、pl_dbにデータを挿入する
 # 責務を分離した設計で実装
-# ログ強化版
+# ログ強化版（2025-12-07）
 # ============================================================
 
 import sqlite3
@@ -20,7 +20,6 @@ class PlDBInserter:
         self.pl_file_path = pl_file_path
         self.file_name = os.path.basename(pl_file_path)
 
-        # 企業コード取得
         parser = PlFilenameParser(pl_file_path)
         self.company_code = parser.get_code()
         print(f"[INFO] 企業コード取得: {self.company_code}")
@@ -33,7 +32,7 @@ class PlDBInserter:
             print(f"[INFO] DBディレクトリ作成: {db_dir}")
 
         self.DB = os.path.join(db_dir, 'PL_DB.db')
-        print(f'[INFO] データベースパス: {self.DB}')
+        print(f"[INFO] データベースパス: {self.DB}")
 
     # ============================================================
     # 1. メタデータ収集
@@ -99,7 +98,7 @@ class PlDBInserter:
             return data
 
         except Exception as e:
-            print(f'[ERROR] IFRSデータ抽出失敗: {e}')
+            print(f"[ERROR] IFRSデータ抽出失敗: {e}")
             raise
 
     # ============================================================
@@ -120,14 +119,73 @@ class PlDBInserter:
             return data
 
         except Exception as e:
-            print(f'[ERROR] 日本GAAPデータ抽出失敗: {e}')
+            print(f"[ERROR] 日本GAAPデータ抽出失敗: {e}")
             raise
 
     # ============================================================
-    # 5. テーブル作成
+    # 5. IFRSレコードの挿入（← 復元 & ログ追加）
+    # ============================================================
+    def insert_ifrs_record(self, cursor, metadata, data):
+        print("[CALL] insert_ifrs_record()")
+        print(f"[INFO] metadata={metadata}")
+        print(f"[INFO] data={data}")
+
+        cursor.execute('''
+            INSERT INTO PL 
+            (Code, FileName, PublicDay, Period, FiscalYear,
+             RevenueIFRS, SellingGeneralAndAdministrativeExpensesIFRS,
+             OperatingProfitLossIFRS, ProfitLossIFRS, DilutedEarningsLossPerShareIFRS)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            metadata['code'],
+            metadata['filename'],
+            metadata['publicday'],
+            metadata['period'],
+            metadata['fiscal_year'],
+            data['revenue'],
+            data['sga'],
+            data['op'],
+            data['profit'],
+            data['eps']
+        ))
+
+        print("[RETURN] insert_ifrs_record -> OK")
+
+    # ============================================================
+    # 6. GAAPレコードの挿入（← 復元 & ログ追加）
+    # ============================================================
+    def insert_gaap_record(self, cursor, metadata, data):
+        print("[CALL] insert_gaap_record()")
+        print(f"[INFO] metadata={metadata}")
+        print(f"[INFO] data={data}")
+
+        cursor.execute('''
+            INSERT INTO PL 
+            (Code, FileName, PublicDay, Period, FiscalYear,
+             NetSales, SellingGeneralAndAdministrativeExpenses,
+             OperatingIncome, OrdinaryIncome, NetIncome)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            metadata['code'],
+            metadata['filename'],
+            metadata['publicday'],
+            metadata['period'],
+            metadata['fiscal_year'],
+            data['netsales'],
+            data['sga'],
+            data['op'],
+            data['ordinary'],
+            data['netincome']
+        ))
+
+        print("[RETURN] insert_gaap_record -> OK")
+
+    # ============================================================
+    # 7. テーブル作成
     # ============================================================
     def ensure_table_exists(self, cursor):
         print("[CALL] ensure_table_exists()")
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS PL (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,10 +208,11 @@ class PlDBInserter:
                 EPS REAL
             )
         ''')
+
         print("[INFO] PLテーブル存在確認・作成完了")
 
     # ============================================================
-    # 6. DB挿入メイン処理
+    # 8. メイン処理（オーケストレーション）
     # ============================================================
     def insert_to_pl_db(self):
         print("[CALL] insert_to_pl_db()")
@@ -178,13 +237,11 @@ class PlDBInserter:
                 print("[BRANCH] IFRSデータ抽出処理")
                 data = self.extract_ifrs_data()
                 self.insert_ifrs_record(cursor, metadata, data)
-                print("[INFO] IFRSレコード挿入完了")
 
             elif file_type == 'GAAP':
                 print("[BRANCH] GAAPデータ抽出処理")
                 data = self.extract_gaap_data()
                 self.insert_gaap_record(cursor, metadata, data)
-                print("[INFO] GAAPレコード挿入完了")
 
             conn.commit()
             print("[INFO] コミット完了")
