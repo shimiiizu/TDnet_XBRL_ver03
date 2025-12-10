@@ -91,7 +91,7 @@ class PlFilenameParser:
 # テストコード
 # ------------------------------------------------------------
 if __name__ == '__main__':
-    pl_file_path = r'C:\Users\SONY\PycharmProjects\pythonProject\TDnet_XBRL\zip_files\3679\0600000-qcpl11-tse-qcedjpfr-36790-2014-06-30-01-2014-08-12-ixbrl.htm'
+    pl_file_path = r'E:\Zip_files\4612\0103010-acss03-tse-acediffr-46120-2024-12-31-01-2025-02-14-ixbrl.htm'
     parser = PlFilenameParser(pl_file_path)
 
     print('filename :', parser.get_filename())
