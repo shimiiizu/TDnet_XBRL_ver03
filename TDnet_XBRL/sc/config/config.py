@@ -15,7 +15,7 @@ class Config:
     - 処理用のXBRLファイル保存フォルダ
     """
 
-    codes: List[int]
+    codes: List[str]
     source_folder: Path
     xbrlfile_folder: Path
 
@@ -29,7 +29,7 @@ class Config:
         CSV から読み込む場合は from_csv() を使用する。
         """
         return cls(
-            codes=[9432],  # ★★★デフォルト企業コード（任意）
+            codes=["1878","146A","2768","3498"],  # ★★★デフォルト企業コード（任意）
             # CSVを使いたいなら以下に切り替え可能：
             # codes=csv_reader.read_csv('./config/code_list.csv'),
 
@@ -63,10 +63,8 @@ class Config:
     def validate(self):
         """設定値が正しいかチェック（必要なら利用）"""
         if not isinstance(self.codes, list):
-            raise ValueError("codes must be a list of integers")
+            raise ValueError("codes must be a list of strings")
 
-        if not self.source_folder.exists():
-            print(f"Warning: source_folder が存在しません: {self.source_folder}")
-
-        if not self.xbrlfile_folder.parent.exists():
-            print(f"Warning: xbrlfile_folder の親フォルダが存在しません: {self.xbrlfile_folder.parent}")
+        # 各要素が文字列かチェック
+        if not all(isinstance(code, str) for code in self.codes):
+            raise ValueError("All codes must be strings")
