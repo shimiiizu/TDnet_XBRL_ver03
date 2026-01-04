@@ -42,7 +42,7 @@ class CompanyDataProcessor:
 
         print(f'{self.code} のZipファイルをダウンロード（必要なら有効化）')
         # import zipfile_downloader
-        #zipfile_downloader.zip_download(self.code)　# ダウンロード実行（必要なら有効化）
+        zipfile_downloader.zip_download(self.code)# ★★ダウンロード実行（必要なら有効化）
 
         print(f'{self.code} のフォルダを作成')
         FileManager.create_folder(self.company_folder)
