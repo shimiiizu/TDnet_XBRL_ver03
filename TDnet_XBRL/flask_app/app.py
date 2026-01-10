@@ -395,34 +395,5 @@ def get_financial_summary(code):
 
 
 if __name__ == '__main__':
-    bs_exists = os.path.exists(BS_DB_PATH)
-    pl_exists = os.path.exists(PL_DB_PATH)
-
-    if bs_exists:
-        print(f"✓ BSデータベース: {BS_DB_PATH}")
-    else:
-        print(f"⚠ BS DB なし: {BS_DB_PATH}")
-
-    if pl_exists:
-        print(f"✓ PLデータベース: {PL_DB_PATH}")
-    else:
-        print(f"⚠ PL DB なし: {PL_DB_PATH}")
-
-    # テスト実行
-    if bs_exists or pl_exists:
-        print("\n=== テストデータ取得 ===")
-        TEST_CODE = '5233'  # テストしたい銘柄コード
-
-        with app.test_client() as client:
-            # PLデータテスト
-            response = client.get(f'/api/pl-data/{TEST_CODE}')
-            print(f"PLデータ: {response.get_json()}")
-
-            # 株価データテスト
-            response = client.get(f'/api/stock-price/{TEST_CODE}')
-            print(f"株価データ件数: {len(response.get_json())}件")
-
-        print("\nFlaskサーバー起動中...")
-        app.run(debug=True, port=5001)
-    else:
-        print("エラー: データベースが見つからないため起動できません")
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
