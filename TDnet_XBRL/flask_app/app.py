@@ -3,6 +3,8 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 import yfinance as yf
+from tasks import update_xbrl_data
+from celery.result import AsyncResult
 
 app = Flask(__name__)
 
@@ -392,6 +394,88 @@ def get_financial_summary(code):
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin')
+def admin():
+    """管理画面ページ"""
+    return render_template('admin.html')
+
+
+@app.route('/api/admin/start-update', methods=['POST'])
+def start_xbrl_update():
+    """XBRL更新タスクを開始"""
+    try:
+        task = update_xbrl_data.delay()  # .delay()でバックグラウンド実行
+        return jsonify({
+            'task_id': task.id,
+            'status': 'started',
+            'message': 'データ更新を開始しました'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'タスク開始エラー: {str(e)}'
+        }), 500
+
+
+@app.route('/api/admin/task-status/<task_id>')
+def get_task_status(task_id):
+    """タスクの進捗状況を取得"""
+    try:
+        task = AsyncResult(task_id)
+
+        if task.state == 'PENDING':
+            # タスクがまだ開始されていない
+            response = {
+                'state': task.state,
+                'current': 0,
+                'total': 100,
+                'status': '待機中...'
+            }
+        elif task.state == 'PROGRESS':
+            # 実行中
+            response = {
+                'state': task.state,
+                'current': task.info.get('current', 0),
+                'total': task.info.get('total', 100),
+                'status': task.info.get('status', '処理中...')
+            }
+        elif task.state == 'SUCCESS':
+            # 完了
+            response = {
+                'state': task.state,
+                'current': 100,
+                'total': 100,
+                'status': '完了',
+                'result': task.info
+            }
+        elif task.state == 'FAILURE':
+            # 失敗
+            response = {
+                'state': task.state,
+                'current': 0,
+                'total': 100,
+                'status': str(task.info) if task.info else 'エラーが発生しました'
+            }
+        else:
+            # その他の状態
+            response = {
+                'state': task.state,
+                'current': 0,
+                'total': 100,
+                'status': f'状態: {task.state}'
+            }
+
+        return jsonify(response)
+
+    except Exception as e:
+        return jsonify({
+            'state': 'ERROR',
+            'current': 0,
+            'total': 100,
+            'status': f'ステータス取得エラー: {str(e)}'
+        }), 500
 
 
 if __name__ == '__main__':
